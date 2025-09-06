@@ -12,6 +12,9 @@ var game_over: bool = false
 
 func _ready() -> void:
 	_ensure_input_map()
+	# Drive the timer by time, not actions
+	if turn_timer and not turn_timer.timeout.is_connected(_on_turn_timer_timeout):
+		turn_timer.timeout.connect(_on_turn_timer_timeout)
 	if player.has_signal("performed_action"):
 		player.connect("performed_action", Callable(self, "_on_player_action"))
 	if board.has_signal("score_changed"):
@@ -26,6 +29,13 @@ func _ready() -> void:
 func reset_game() -> void:
 	game_over = false
 	time_remaining = total_time
+	# Configure and start the ticking timer
+	if turn_timer:
+		turn_timer.stop()
+		# 1-second ticks; adjust if you want smoother UI updates
+		turn_timer.wait_time = 1.0
+		turn_timer.one_shot = false
+		turn_timer.start()
 	if board.has_method("randomize_start"):
 		board.randomize_start()
 	_update_score_ui()
@@ -42,19 +52,22 @@ func _on_player_action(cell: Vector2i, action: String) -> void:
 	if changed and board.has_method("apply_weed_rules"):
 		board.apply_weed_rules()
 	_update_score_ui()
-	_tick_time()
+	# Timer now advances with real time via TurnTimer
 	_check_game_over()
 	if ui.has_method("set_turn_text"):
 		ui.set_turn_text(action.capitalize())
 
-func _tick_time() -> void:
-	time_remaining = max(0.0, time_remaining - 1.0)
+func _tick_time(amount: float) -> void:
+	# Decrease remaining time by a given amount (seconds)
+	time_remaining = max(0.0, time_remaining - amount)
 	_update_time_ui()
 
 func _check_game_over() -> void:
 	if time_remaining <= 0.0:
 		var win := _current_score() >= threshold
 		game_over = true
+		if turn_timer:
+			turn_timer.stop()
 		if ui.has_method("show_game_over"):
 			ui.show_game_over(true, win)
 
@@ -77,6 +90,16 @@ func _on_score_changed(_value: int) -> void:
 
 func _on_restart() -> void:
 	reset_game()
+
+func _on_turn_timer_timeout() -> void:
+	if game_over:
+		return
+	# Tick down based on the timer's configured interval
+	var amount := 1.0
+	if turn_timer:
+		amount = turn_timer.wait_time
+	_tick_time(amount)
+	_check_game_over()
 
 # --- Input Map helpers ---
 
