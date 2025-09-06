@@ -61,6 +61,8 @@
 1. Open Godot 4 and load the project folder.
 2. Press Play to run `scenes/Main.tscn`.
 3. Controls: WASD/Arrows to move, Space to act, Tab to toggle action label.
+4. Debug Overlay: press Ctrl to toggle a right-aligned transparent overlay showing:
+   - current level index, expected weed spawns per second, and expected grass changes per second.
 
 ## Known Issues & Resolutions
 - Node warning: "TileMap is deprecated; use TileMapLayer"

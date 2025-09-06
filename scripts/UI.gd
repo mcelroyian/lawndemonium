@@ -6,12 +6,15 @@ signal restart_pressed
 @onready var timer_bar: ProgressBar = $TimerBar
 @onready var turn_label: Label = $TurnLabel
 @onready var restart_button: Button = $RestartButton
+@onready var debug_label: Label = $DebugLabel
 
 func _ready() -> void:
     restart_button.pressed.connect(_on_restart)
     set_score(0)
     set_time_ratio(1.0)
     show_game_over(false, false)
+    if debug_label:
+        debug_label.visible = false
 
 func set_score(v: int) -> void:
     score_label.text = "Score: %d" % v
@@ -30,3 +33,10 @@ func show_game_over(visible: bool, won: bool) -> void:
 func _on_restart() -> void:
     emit_signal("restart_pressed")
 
+func set_debug_visible(v: bool) -> void:
+    if debug_label:
+        debug_label.visible = v
+
+func set_debug_text(t: String) -> void:
+    if debug_label:
+        debug_label.text = t

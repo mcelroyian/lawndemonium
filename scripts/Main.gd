@@ -10,6 +10,10 @@ var time_remaining: float = 180.0
 var threshold: int = 5
 var game_over: bool = false
 
+# Debug overlay state
+var debug_enabled: bool = false
+var _debug_accum: float = 0.0
+
 # Spawn rates are now driven by LevelConfig via Board auto-ticking.
 
 func _ready() -> void:
@@ -27,6 +31,7 @@ func _ready() -> void:
 	if player.has_method("configure"):
 		player.configure(board.GRID_SIZE, board.TILE)
 	reset_game()
+	set_process(true)
 
 func reset_game() -> void:
 	game_over = false
@@ -44,6 +49,8 @@ func reset_game() -> void:
 	_update_time_ui()
 	if ui.has_method("show_game_over"):
 		ui.show_game_over(false, false)
+	if ui.has_method("set_debug_visible"):
+		ui.set_debug_visible(debug_enabled)
 
 func _on_player_action(cell: Vector2i, action: String) -> void:
 	if game_over:
@@ -100,6 +107,73 @@ func _on_turn_timer_timeout() -> void:
 		amount = 10.0 * turn_timer.wait_time
 	_tick_time(amount)
 	_check_game_over()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		# Toggle debug overlay with Ctrl
+		if event.keycode == KEY_CTRL:
+			debug_enabled = not debug_enabled
+			if ui.has_method("set_debug_visible"):
+				ui.set_debug_visible(debug_enabled)
+
+func _process(delta: float) -> void:
+	# Periodically refresh debug overlay
+	if not debug_enabled:
+		return
+	_debug_accum += delta
+	if _debug_accum >= 0.5:
+		_debug_accum = 0.0
+		_update_debug_overlay()
+
+func _update_debug_overlay() -> void:
+	if ui == null or not ui.has_method("set_debug_text"):
+		return
+	var lm := get_node_or_null("/root/LevelMgr")
+	var level_idx: int = -1
+	var cfg: LevelConfig = null
+	if lm:
+		if lm.has_method("get_config"):
+			cfg = lm.call("get_config")
+		if lm.has_method("get"):
+			level_idx = int(lm.get("current"))
+
+	var level_str := ("%d" % (level_idx + 1)) if level_idx >= 0 else "?"
+
+	var weeds_per_sec := 0.0
+	var grass_per_sec := 0.0
+	if cfg and board:
+		# Weed spawns per second (expected)
+		var eligible: int = 0
+		if board.has_method("count_eligible_weed_tiles"):
+			eligible = board.count_eligible_weed_tiles()
+		var spawn_per_tick := 0.0
+		if cfg.weed_spawn_mode == "ratio":
+			spawn_per_tick = float(ceil(float(eligible) * max(0.0, cfg.weed_spawn_ratio)))
+		else:
+			var chance := 0.0
+			if cfg.weed_spawn_mode == "absolute":
+				chance = max(0.0, cfg.weed_spawn_chance)
+			elif cfg.weed_spawn_mode == "multiplier":
+				chance = max(0.0, board.global_base_spawn_chance * cfg.weed_spawn_multiplier)
+			spawn_per_tick = float(eligible) * chance
+		weeds_per_sec = spawn_per_tick / max(0.001, cfg.weed_tick_interval_sec)
+
+		# Grass changes per second (expected decay)
+		var good_count := 0
+		var ok_count := 0
+		var gs: Vector2i = board.GRID_SIZE
+		for y in range(gs.y):
+			for x in range(gs.x):
+				var id: int = board.get_tile(Vector2i(x, y))
+				if id == board.GOOD:
+					good_count += 1
+				elif id == board.OK:
+					ok_count += 1
+		var change_per_tick: float = float(good_count) * clamp(cfg.p_good_to_ok, 0.0, 1.0) + float(ok_count) * clamp(cfg.p_ok_to_bad, 0.0, 1.0)
+		grass_per_sec = change_per_tick / max(0.001, cfg.grass_tick_interval_sec)
+
+	var text := "Level: %s\nWeeds/s: %.2f\nGrass/s: %.2f" % [level_str, weeds_per_sec, grass_per_sec]
+	ui.set_debug_text(text)
 
 # --- Input Map helpers ---
 
