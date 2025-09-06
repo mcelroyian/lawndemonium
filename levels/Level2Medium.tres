@@ -1,16 +1,18 @@
-[gd_resource type="Resource" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="LevelConfig" load_steps=2 format=3 uid="uid://cmmbqk8jssago"]
 
-[ext_resource path="res://scripts/LevelConfig.gd" type="Script" id=1]
+[ext_resource type="Script" uid="uid://bw145pqrrhiow" path="res://scripts/LevelConfig.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
-weed_spawn_mode = "ratio"
-weed_spawn_chance = 0.05
-weed_spawn_multiplier = 1.5
-weed_spawn_ratio = 0.08
-weed_tick_interval_sec = 2.0
-weed_respawn_cooldown_sec = 6.0
+weed_spawn_mode = "absolute"
+weed_spawn_chance = 0.001
+weed_spawn_multiplier = 1.0
+weed_spawn_ratio = 0.0
+weed_tick_interval_sec = 3.0
+weed_respawn_cooldown_sec = 8.0
 grass_tick_interval_sec = 3.0
 p_good_to_ok = 0.05
 p_ok_to_bad = 0.03
-
+start_all_bad = false
+start_weed_count = -1
+start_bad_count = -1
