@@ -13,6 +13,7 @@ weed_spawn_chance_per_second = 0.025
 [node name="Board" type="TileMapLayer" parent="."]
 tile_set = ExtResource("2_vcsgt")
 script = ExtResource("2")
+weeds_layer_path = NodePath("../Weeds")
 
 [node name="Cursor" type="Node2D" parent="."]
 script = ExtResource("3")
@@ -45,3 +46,7 @@ text = "Restart"
 [node name="SFX" type="AudioStreamPlayer" parent="."]
 
 [node name="TurnTimer" type="Timer" parent="."]
+
+[node name="Weeds" type="TileMapLayer" parent="."]
+z_index = 10
+tile_set = ExtResource("2_vcsgt")

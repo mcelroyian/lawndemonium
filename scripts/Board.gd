@@ -9,7 +9,7 @@ const TILE: int = 64
 const BAD := 0
 const OK := 1
 const GOOD := 2
-const WEED := 3
+const WEED := 3 # kept for atlas lookup, not stored in ground tiles
 const DIRT := 4
 
 const SCORE_BAD := -1
@@ -19,6 +19,11 @@ const SCORE_WEED := -2
 
 var tiles: Array = []
 var _atlas_source_id: int = -1
+var weed_mask: Array = [] # 2D bool array matching GRID_SIZE; true if weed present
+
+@export var weeds_layer_path: NodePath
+@onready var weeds_layer: TileMapLayer = get_node_or_null(weeds_layer_path) as TileMapLayer
+@export var weed_atlas_position: Vector2i = Vector2i(11, 7)
 
 # Mapping from our logical tile ids -> atlas coordinates.
 # Defaults to first 5 tiles on the top row. Configure in Inspector if desired.
@@ -42,6 +47,12 @@ func _init_grid() -> void:
 		tiles[y].resize(GRID_SIZE.x)
 		for x in range(tiles[y].size()):
 			tiles[y][x] = OK
+	weed_mask.resize(GRID_SIZE.y)
+	for y in range(weed_mask.size()):
+		weed_mask[y] = []
+		weed_mask[y].resize(GRID_SIZE.x)
+		for x in range(GRID_SIZE.x):
+			weed_mask[y][x] = false
 
 func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 	_init_grid()
@@ -52,13 +63,13 @@ func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 	coords.shuffle()
 	for i in range(weed_count):
 		var p: Vector2i = coords.pop_back()
-		set_tile(p, WEED)
+		_set_weed(p, true)
 	for i in range(bad_count):
 		var p2: Vector2i = coords.pop_back()
 		set_tile(p2, BAD)
 	emit_signal("score_changed", calc_score())
 	_redraw_all()
-
+	
 func grid_to_local(p: Vector2i) -> Vector2:
 	return Vector2(p.x * TILE, p.y * TILE)
 
@@ -85,8 +96,8 @@ func apply_player_action(p: Vector2i, action: String) -> bool:
 	var t := get_tile(p)
 	var changed := false
 	if action == "pull":
-		if t == WEED:
-			set_tile(p, OK)
+		if weed_mask[p.y][p.x]:
+			_set_weed(p, false)
 			changed = true
 	else:
 		if t == BAD:
@@ -104,9 +115,9 @@ func apply_weed_rules(spawn_chance: float = 0.10) -> void:
 		for x in range(GRID_SIZE.x):
 			var p := Vector2i(x, y)
 			var t := get_tile(p)
-			if t == BAD or t == OK:
+			if (t == BAD or t == OK) and not weed_mask[y][x]:
 				if rng.randf() < spawn_chance:
-					set_tile(p, WEED)
+					_set_weed(p, true)
 
 func calc_score() -> int:
 	var s: int = 0
@@ -119,8 +130,8 @@ func calc_score() -> int:
 					s += SCORE_OK
 				BAD:
 					s += SCORE_BAD
-				WEED:
-					s += SCORE_WEED
+			if weed_mask[y][x]:
+				s += SCORE_WEED
 	return s
 
 func count_eligible_weed_tiles() -> int:
@@ -129,7 +140,7 @@ func count_eligible_weed_tiles() -> int:
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			var t: int = tiles[y][x]
-			if t == BAD or t == OK:
+			if (t == BAD or t == OK) and not weed_mask[y][x]:
 				c += 1
 	return c
 
@@ -175,6 +186,14 @@ func _ensure_tileset() -> void:
 		_atlas_source_id = ts.add_source(atlas)
 		tile_set = ts
 
+	# Ensure the weeds layer shares this tileset so atlas coords match
+	if weeds_layer:
+		if weeds_layer.tile_set == null:
+			weeds_layer.tile_set = tile_set
+		# In case weeds layer had a different tileset, replace to keep atlas ids aligned
+		elif weeds_layer.tile_set != tile_set:
+			weeds_layer.tile_set = tile_set
+
 func _redraw_all() -> void:
 	if _atlas_source_id == -1:
 		return
@@ -184,3 +203,20 @@ func _redraw_all() -> void:
 			var id: int = tiles[y][x]
 			var coord := tile_atlas_positions[id] if id >= 0 and id < tile_atlas_positions.size() else Vector2i(id, 0)
 			set_cell(Vector2i(x, y), _atlas_source_id, coord)
+	if weeds_layer:
+		weeds_layer.clear()
+		for y in range(GRID_SIZE.y):
+			for x in range(GRID_SIZE.x):
+				if weed_mask[y][x]:
+					weeds_layer.set_cell(Vector2i(x, y), _atlas_source_id, weed_atlas_position)
+
+func _set_weed(p: Vector2i, present: bool) -> void:
+	if not is_in_bounds(p):
+		return
+	weed_mask[p.y][p.x] = present
+	if weeds_layer and _atlas_source_id != -1:
+		if present:
+			weeds_layer.set_cell(p, _atlas_source_id, weed_atlas_position)
+		else:
+			weeds_layer.erase_cell(p)
+	emit_signal("score_changed", calc_score())
