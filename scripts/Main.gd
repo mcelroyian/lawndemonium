@@ -32,8 +32,8 @@ func reset_game() -> void:
 	# Configure and start the ticking timer
 	if turn_timer:
 		turn_timer.stop()
-		# 1-second ticks; adjust if you want smoother UI updates
-		turn_timer.wait_time = 1.0
+		# 0.25s ticks for smoother/faster updates (4x rate)
+		turn_timer.wait_time = 0.25
 		turn_timer.one_shot = false
 		turn_timer.start()
 	if board.has_method("randomize_start"):
@@ -97,7 +97,8 @@ func _on_turn_timer_timeout() -> void:
 	# Tick down based on the timer's configured interval
 	var amount := 1.0
 	if turn_timer:
-		amount = turn_timer.wait_time
+		# Make countdown 4x faster than before
+		amount = 20.0 * turn_timer.wait_time
 	_tick_time(amount)
 	_check_game_over()
 

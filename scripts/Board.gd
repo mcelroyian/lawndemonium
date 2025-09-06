@@ -23,11 +23,11 @@ var _atlas_source_id: int = -1
 # Mapping from our logical tile ids -> atlas coordinates.
 # Defaults to first 5 tiles on the top row. Configure in Inspector if desired.
 @export var tile_atlas_positions: Array[Vector2i] = [
-	Vector2i(0, 0), # BAD
-	Vector2i(1, 0), # OK
-	Vector2i(2, 0), # GOOD
-	Vector2i(3, 0), # WEED
-	Vector2i(4, 0)  # DIRT
+	Vector2i(0, 9), # BAD
+	Vector2i(13, 11), # OK (unchanged; specify if different)
+	Vector2i(0, 3), # GOOD
+	Vector2i(0, 5), # WEED
+	Vector2i(0, 0)  # DIRT
 ]
 
 func _ready() -> void:
