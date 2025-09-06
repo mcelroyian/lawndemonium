@@ -212,11 +212,14 @@ func calc_score() -> int:
 	return s
 
 func is_perfect() -> bool:
+	# Consider the board "perfect enough" to advance when:
+	#  - There are no weeds anywhere, and
+	#  - There are no BAD tiles (OK and GOOD are allowed)
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			if weed_mask[y][x]:
 				return false
-			if tiles[y][x] != GOOD:
+			if tiles[y][x] == BAD:
 				return false
 	return true
 
