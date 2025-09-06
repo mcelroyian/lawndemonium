@@ -4,7 +4,7 @@ signal tile_changed(position: Vector2i, tile_id: int)
 signal score_changed(score: int)
 
 const GRID_SIZE: Vector2i = Vector2i(8, 8)
-const TILE: int = 32
+const TILE: int = 64
 
 const BAD := 0
 const OK := 1

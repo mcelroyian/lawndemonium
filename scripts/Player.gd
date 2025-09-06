@@ -41,3 +41,9 @@ func _draw() -> void:
     var rect := Rect2(Vector2.ZERO, size)
     draw_rect(rect, Color(1, 1, 0, 0.12), true)
     draw_rect(rect, Color(1, 1, 0, 0.9), false, 2.0)
+
+func configure(grid: Vector2i, tile_size: int) -> void:
+    grid_size = grid
+    tile = tile_size
+    _sync_position()
+    queue_redraw()
