@@ -97,7 +97,7 @@ func _on_turn_timer_timeout() -> void:
 	var amount: float = 1.0
 	if turn_timer:
 		# Make countdown 4x faster than before
-		amount = 20.0 * turn_timer.wait_time
+		amount = 10.0 * turn_timer.wait_time
 	_tick_time(amount)
 	_check_game_over()
 
