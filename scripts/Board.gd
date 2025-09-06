@@ -123,6 +123,16 @@ func calc_score() -> int:
 					s += SCORE_WEED
 	return s
 
+func count_eligible_weed_tiles() -> int:
+	# Eligible tiles are those that can become weeds per rules: BAD or OK
+	var c: int = 0
+	for y in range(GRID_SIZE.y):
+		for x in range(GRID_SIZE.x):
+			var t: int = tiles[y][x]
+			if t == BAD or t == OK:
+				c += 1
+	return c
+
 # --- Rendering helpers ---
 
 func _ensure_tileset() -> void:

@@ -26,9 +26,9 @@
 ## Key Mechanics
 - Grid size: `Vector2i(8,8)`; tile size: `TILE = 64` (see `scripts/Board.gd:7`).
 - Actions: mow/pull (Space to act, Tab to toggle label text only; action auto-contextual).
-- Turn flow: action → weed rules → score update → time tick → win/lose check.
+- Turn flow: time tick → weed growth (probabilistic) → score/time UI update → win/lose check.
 - Scoring: GOOD=+1, OK=0, BAD=-1, WEED=-2 (see `Board.gd`).
-- Timer: decremented by 1 per action; win if `score >= threshold` when time reaches 0.
+- Timer: driven by `TurnTimer`; win if `score >= threshold` when time reaches 0.
 
 ## Rendering Strategy
 - No external TileSet resource yet. `Board.gd` generates a simple colored atlas at runtime:
@@ -45,10 +45,12 @@
 
 ## Configuration Touchpoints
 - `scripts/Board.gd`
-  - `GRID_SIZE`, `TILE`, score constants, weed spawn chance in `apply_weed_rules()`.
+  - `GRID_SIZE`, `TILE`, score constants.
   - `randomize_start(weed_count, bad_count)` controls initial layout.
 - `scripts/Main.gd`
   - `total_time`, `threshold` for win condition.
+  - `weeds_per_minute` (export): target weeds spawned per minute globally (preferred).
+  - `weed_spawn_chance_per_second` (legacy): used only if `weeds_per_minute <= 0`.
   - `_ensure_input_map()` to add bindings.
 - `scripts/Player.gd`
   - `configure(grid, tile)` keeps cursor size in sync with board.

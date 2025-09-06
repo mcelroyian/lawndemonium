@@ -10,6 +10,11 @@ var time_remaining: float = 180.0
 var threshold: int = 5
 var game_over: bool = false
 
+# Config: global target weeds spawned per minute across the whole board
+@export var weeds_per_minute: float = 3.0
+# Legacy: per-eligible-tile per-second chance; used only if weeds_per_minute <= 0
+@export var weed_spawn_chance_per_second: float = 0.005
+
 func _ready() -> void:
 	_ensure_input_map()
 	# Drive the timer by time, not actions
@@ -46,11 +51,8 @@ func reset_game() -> void:
 func _on_player_action(cell: Vector2i, action: String) -> void:
 	if game_over:
 		return
-	var changed := false
 	if board.has_method("apply_player_action"):
-		changed = board.apply_player_action(cell, action)
-	if changed and board.has_method("apply_weed_rules"):
-		board.apply_weed_rules()
+		board.apply_player_action(cell, action)
 	_update_score_ui()
 	# Timer now advances with real time via TurnTimer
 	_check_game_over()
@@ -64,7 +66,7 @@ func _tick_time(amount: float) -> void:
 
 func _check_game_over() -> void:
 	if time_remaining <= 0.0:
-		var win := _current_score() >= threshold
+		var win: bool = _current_score() >= threshold
 		game_over = true
 		if turn_timer:
 			turn_timer.stop()
@@ -77,7 +79,7 @@ func _update_score_ui() -> void:
 
 func _update_time_ui() -> void:
 	if ui and ui.has_method("set_time_ratio"):
-		var ratio := (time_remaining / total_time) if total_time > 0.0 else 0.0
+		var ratio: float = (time_remaining / total_time) if total_time > 0.0 else 0.0
 		ui.set_time_ratio(ratio)
 
 func _current_score() -> int:
@@ -95,10 +97,25 @@ func _on_turn_timer_timeout() -> void:
 	if game_over:
 		return
 	# Tick down based on the timer's configured interval
-	var amount := 1.0
+	var amount: float = 1.0
 	if turn_timer:
 		# Make countdown 4x faster than before
 		amount = 20.0 * turn_timer.wait_time
+		# Apply weed growth based on config; stable global rate if set
+		if board and board.has_method("apply_weed_rules") and turn_timer:
+			var dt: float = float(turn_timer.wait_time)
+			var per_tick: float = 0.0
+			if weeds_per_minute > 0.0 and board.has_method("count_eligible_weed_tiles"):
+				var eligible: int = board.count_eligible_weed_tiles()
+				if eligible > 0:
+					var weeds_per_sec: float = weeds_per_minute / 60.0
+					var p_sec_per_tile: float = weeds_per_sec / float(eligible)
+					per_tick = 1.0 - pow(1.0 - clamp(p_sec_per_tile, 0.0, 1.0), dt)
+			else:
+				var p_sec: float = clamp(weed_spawn_chance_per_second, 0.0, 1.0)
+				per_tick = 1.0 - pow(1.0 - p_sec, dt)
+			if per_tick > 0.0:
+				board.apply_weed_rules(per_tick)
 	_tick_time(amount)
 	_check_game_over()
 
@@ -116,14 +133,14 @@ func _ensure_action(action_name: String, keys: Array) -> void:
 	if not InputMap.has_action(action_name):
 		InputMap.add_action(action_name)
 	# Add keys if not present
-	var existing := InputMap.action_get_events(action_name)
+	var existing: Array = InputMap.action_get_events(action_name)
 	for key in keys:
-		var already := false
+		var already: bool = false
 		for ev in existing:
 			if ev is InputEventKey and ev.physical_keycode == key:
 				already = true
 				break
 		if not already:
-			var e := InputEventKey.new()
+			var e: InputEventKey = InputEventKey.new()
 			e.physical_keycode = key
 			InputMap.action_add_event(action_name, e)
