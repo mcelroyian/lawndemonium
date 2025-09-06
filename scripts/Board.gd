@@ -20,6 +20,20 @@ const SCORE_WEED := -2
 var tiles: Array = []
 var _atlas_source_id: int = -1
 var weed_mask: Array = [] # 2D bool array matching GRID_SIZE; true if weed present
+var weed_block_until: Array = [] # 2D float array; timestamp until which weeds cannot respawn
+
+# Timers for autonomous ticks
+var _weed_timer := 0.0
+var _grass_timer := 0.0
+var _now := 0.0
+
+@export var auto_tick_enabled: bool = true
+@export var global_base_spawn_chance: float = 0.10
+
+# Optional level configuration
+@export var level_config: LevelConfig
+var _active_config: LevelConfig
+var _level_manager: Node
 
 @export var weeds_layer_path: NodePath
 @onready var weeds_layer: TileMapLayer = get_node_or_null(weeds_layer_path) as TileMapLayer
@@ -39,6 +53,23 @@ func _ready() -> void:
 	_ensure_tileset()
 	_init_grid()
 	_redraw_all()
+	_wire_level_config()
+	set_process(auto_tick_enabled)
+
+func _process(delta: float) -> void:
+	if not auto_tick_enabled:
+		return
+	_now += delta
+	var cfg: LevelConfig = _get_config()
+	# Accumulate timers
+	_weed_timer += delta
+	_grass_timer += delta
+	if _weed_timer >= cfg.weed_tick_interval_sec:
+		_weed_timer = 0.0
+		_tick_weeds(cfg)
+	if _grass_timer >= cfg.grass_tick_interval_sec:
+		_grass_timer = 0.0
+		_tick_grass(cfg)
 
 func _init_grid() -> void:
 	tiles.resize(GRID_SIZE.y)
@@ -53,6 +84,12 @@ func _init_grid() -> void:
 		weed_mask[y].resize(GRID_SIZE.x)
 		for x in range(GRID_SIZE.x):
 			weed_mask[y][x] = false
+	weed_block_until.resize(GRID_SIZE.y)
+	for y in range(weed_block_until.size()):
+		weed_block_until[y] = []
+		weed_block_until[y].resize(GRID_SIZE.x)
+		for x in range(GRID_SIZE.x):
+			weed_block_until[y][x] = 0.0
 
 func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 	_init_grid()
@@ -98,6 +135,9 @@ func apply_player_action(p: Vector2i, action: String) -> bool:
 	if action == "pull":
 		if weed_mask[p.y][p.x]:
 			_set_weed(p, false)
+			# Start a cooldown to prevent immediate re-spawn
+			var cfg: LevelConfig = _get_config()
+			weed_block_until[p.y][p.x] = _now + cfg.weed_respawn_cooldown_sec
 			changed = true
 	else:
 		if t == BAD:
@@ -116,8 +156,42 @@ func apply_weed_rules(spawn_chance: float = 0.10) -> void:
 			var p := Vector2i(x, y)
 			var t := get_tile(p)
 			if (t == BAD or t == OK) and not weed_mask[y][x]:
+				# Respect cooldown
+				if _now < weed_block_until[y][x]:
+					continue
 				if rng.randf() < spawn_chance:
 					_set_weed(p, true)
+
+func apply_weed_rules_ratio(ratio: float) -> void:
+	# Spawn ceil(eligible * ratio) weeds by choosing random eligible positions.
+	var eligible: Array[Vector2i] = []
+	for y in range(GRID_SIZE.y):
+		for x in range(GRID_SIZE.x):
+			var p := Vector2i(x, y)
+			var t := get_tile(p)
+			if (t == BAD or t == OK) and not weed_mask[y][x]:
+				if _now >= weed_block_until[y][x]:
+					eligible.append(p)
+	if eligible.is_empty():
+		return
+	var spawn_count: int = int(ceil(float(eligible.size()) * max(0.0, ratio)))
+	if spawn_count <= 0:
+		return
+	eligible.shuffle()
+	for i in range(min(spawn_count, eligible.size())):
+		_set_weed(eligible[i], true)
+
+func apply_grass_decay(p_good_to_ok: float, p_ok_to_bad: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	for y in range(GRID_SIZE.y):
+		for x in range(GRID_SIZE.x):
+			var p := Vector2i(x, y)
+			var t := get_tile(p)
+			if t == GOOD and rng.randf() < clamp(p_good_to_ok, 0.0, 1.0):
+				set_tile(p, OK)
+			elif t == OK and rng.randf() < clamp(p_ok_to_bad, 0.0, 1.0):
+				set_tile(p, BAD)
 
 func calc_score() -> int:
 	var s: int = 0
@@ -220,3 +294,44 @@ func _set_weed(p: Vector2i, present: bool) -> void:
 		else:
 			weeds_layer.erase_cell(p)
 	emit_signal("score_changed", calc_score())
+
+# --- Level + ticking helpers ---
+
+func _wire_level_config() -> void:
+	# Prefer explicit export if set
+	_active_config = level_config if level_config is LevelConfig else null
+	# Try to obtain LevelManager from autoload if available
+	_level_manager = get_node_or_null("/root/LevelManager")
+	if _level_manager and _level_manager.has_method("get_config"):
+		_active_config = _level_manager.call("get_config")
+		if _level_manager.has_signal("level_changed"):
+			_level_manager.connect("level_changed", Callable(self, "_on_level_changed"))
+	# Fallback to default
+	if _active_config == null:
+		_active_config = LevelConfig.new()
+
+func _on_level_changed(_index: int, cfg: LevelConfig) -> void:
+	_active_config = cfg
+
+func _get_config() -> LevelConfig:
+	return _active_config
+
+func _compute_spawn_chance(cfg: LevelConfig) -> float:
+	var mode := cfg.weed_spawn_mode
+	if mode == "absolute":
+		return max(0.0, cfg.weed_spawn_chance)
+	elif mode == "multiplier":
+		return max(0.0, global_base_spawn_chance * cfg.weed_spawn_multiplier)
+	else:
+		# ratio mode handled separately
+		return 0.0
+
+func _tick_weeds(cfg: LevelConfig) -> void:
+	if cfg.weed_spawn_mode == "ratio":
+		apply_weed_rules_ratio(cfg.weed_spawn_ratio)
+	else:
+		var chance := _compute_spawn_chance(cfg)
+		apply_weed_rules(chance)
+
+func _tick_grass(cfg: LevelConfig) -> void:
+	apply_grass_decay(cfg.p_good_to_ok, cfg.p_ok_to_bad)
