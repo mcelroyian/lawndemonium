@@ -12,6 +12,7 @@ func _ready() -> void:
 		var defaults := [
 			"res://levels/Level1Easy.tres",
 			"res://levels/Level2Medium.tres",
+			"res://levels/Level3AllBadNoWeeds.tres",
 		]
 		for p in defaults:
 			var cfg := load(p)

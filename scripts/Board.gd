@@ -94,15 +94,41 @@ func _init_grid() -> void:
 
 func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 	_init_grid()
+	var cfg: LevelConfig = _get_config()
+
+	# If level config requests a specific initial state, honor it.
+	if cfg is LevelConfig:
+		if cfg.start_all_bad:
+			# All tiles BAD, no weeds
+			for y in range(GRID_SIZE.y):
+				for x in range(GRID_SIZE.x):
+					set_tile(Vector2i(x, y), BAD)
+					_set_weed(Vector2i(x, y), false)
+			emit_signal("score_changed", calc_score())
+			_redraw_all()
+			_was_perfect = false
+			return
+
+		# Override counts if provided by config
+		if cfg.start_weed_count >= 0:
+			weed_count = cfg.start_weed_count
+		if cfg.start_bad_count >= 0:
+			bad_count = cfg.start_bad_count
+
+	# Default/randomized start
 	var coords: Array[Vector2i] = []
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			coords.append(Vector2i(x, y))
 	coords.shuffle()
 	for i in range(weed_count):
+		if coords.is_empty():
+			break
 		var p: Vector2i = coords.pop_back()
 		_set_weed(p, true)
 	for i in range(bad_count):
+		if coords.is_empty():
+			break
 		var p2: Vector2i = coords.pop_back()
 		set_tile(p2, BAD)
 	emit_signal("score_changed", calc_score())

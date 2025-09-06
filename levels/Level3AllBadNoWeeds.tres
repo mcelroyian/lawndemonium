@@ -1,0 +1,23 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource path="res://scripts/LevelConfig.gd" type="Script" id=1]
+
+[resource]
+script = ExtResource("1")
+# No weed spawning at all
+weed_spawn_mode = "absolute"
+weed_spawn_chance = 0.0
+weed_spawn_multiplier = 1.0
+weed_spawn_ratio = 0.0
+# Effectively disabled autonomous ticks
+weed_tick_interval_sec = 9999.0
+weed_respawn_cooldown_sec = 6.0
+grass_tick_interval_sec = 9999.0
+# No decay needed here, but keep tiny values harmlessly
+p_good_to_ok = 0.0
+p_ok_to_bad = 0.0
+
+# Initial state: All BAD, no weeds
+start_all_bad = true
+start_weed_count = 0
+start_bad_count = 64

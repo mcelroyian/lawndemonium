@@ -20,3 +20,11 @@ extends Resource
 # Grass decay probabilities per grass tick
 @export var p_good_to_ok: float = 0.05
 @export var p_ok_to_bad: float = 0.03
+
+# Initial board state overrides
+# If true, start with every tile as BAD and no weeds
+@export var start_all_bad: bool = false
+# If >= 0, overrides initial weeds placed by Board.randomize_start()
+@export var start_weed_count: int = -1
+# If >= 0, overrides initial BAD tiles placed by Board.randomize_start()
+@export var start_bad_count: int = -1
