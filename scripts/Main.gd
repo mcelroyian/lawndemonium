@@ -1,6 +1,6 @@
 extends Node2D
 
-@onready var board: TileMap = $Board
+@onready var board: TileMapLayer = $Board
 @onready var player: Node2D = $Cursor
 @onready var ui: CanvasLayer = $UI
 @onready var turn_timer: Timer = $TurnTimer

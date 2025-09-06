@@ -17,7 +17,7 @@
 
 ## Node Tree (at runtime)
 - `Main (Node2D)`
-  - `Board (TileMap)` — 8×8 grid, draws tiles
+  - `Board (TileMapLayer)` — 8×8 grid, draws tiles
   - `Cursor (Node2D)` — visible yellow selection box
   - `UI (CanvasLayer)` — `ScoreLabel`, `TimerBar`, `TurnLabel`, `RestartButton`
   - `SFX (AudioStreamPlayer)` — reserved
@@ -33,7 +33,7 @@
 ## Rendering Strategy
 - No external TileSet resource yet. `Board.gd` generates a simple colored atlas at runtime:
   - BAD (dull red), OK (green), GOOD (bright green), WEED (purple), DIRT (brown).
-  - Calls `TileMap.set_cell(0, pos, atlas_source, atlas_coords)` on tile updates.
+  - Calls `TileMapLayer.set_cell(pos, atlas_source, atlas_coords)` on tile updates.
 - The `Cursor` draws a yellow rectangle using `_draw()` so the active cell is visible.
 
 ## Input Mapping (programmatic)
@@ -59,6 +59,9 @@
 3. Controls: WASD/Arrows to move, Space to act, Tab to toggle action label.
 
 ## Known Issues & Resolutions
+- Node warning: "TileMap is deprecated; use TileMapLayer"
+  - Cause: Godot 4.3 deprecates `TileMap` in favor of `TileMapLayer` nodes.
+  - Fix: Scene changed to `TileMapLayer` and `Board.gd` now extends `TileMapLayer` and uses the 3‑argument `set_cell()` (no layer index).
 - Parse error: “Expected parameter name” (Main.gd)
   - Cause: Using `_` as a discarded parameter with strict typing.
   - Fix: Name it `_value` (see `scripts/Main.gd:75`).
