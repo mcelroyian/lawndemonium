@@ -57,6 +57,10 @@ func _ready() -> void:
 	_wire_level_config()
 	set_process(auto_tick_enabled)
 
+func set_auto_tick_enabled(v: bool) -> void:
+	auto_tick_enabled = v
+	set_process(v)
+
 func _process(delta: float) -> void:
 	if not auto_tick_enabled:
 		return

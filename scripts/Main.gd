@@ -60,6 +60,8 @@ func reset_game() -> void:
 		turn_timer.wait_time = 0.25
 		turn_timer.one_shot = false
 		turn_timer.start()
+	if board and board.has_method("set_auto_tick_enabled"):
+		board.call("set_auto_tick_enabled", true)
 	if board.has_method("randomize_start"):
 		board.randomize_start()
 	_update_score_ui()
@@ -91,6 +93,8 @@ func _check_game_over() -> void:
 		game_over = true
 		if turn_timer:
 			turn_timer.stop()
+		if board and board.has_method("set_auto_tick_enabled"):
+			board.call("set_auto_tick_enabled", false)
 		if ui.has_method("show_game_over"):
 			ui.show_game_over(true, win)
 
@@ -119,6 +123,8 @@ func _on_level_changed(_index: int, _cfg: LevelConfig) -> void:
 	game_over = false
 	time_remaining = total_time
 	_update_time_ui()
+	if board and board.has_method("set_auto_tick_enabled"):
+		board.call("set_auto_tick_enabled", true)
 	if ui.has_method("show_game_over"):
 		ui.show_game_over(false, false)
 
