@@ -9,6 +9,7 @@ var total_time: float = 180.0
 var time_remaining: float = 180.0
 var threshold: int = 5
 var game_over: bool = false
+var _paused: bool = false
 
 # Debug overlay state
 var debug_enabled: bool = false
@@ -18,6 +19,17 @@ var _debug_accum: float = 0.0
 
 func _ready() -> void:
 	_ensure_input_map()
+	# Ensure this node still processes input while tree is paused (Godot 4)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Children should pause normally even if parent is ALWAYS
+	if board:
+		board.process_mode = Node.PROCESS_MODE_PAUSABLE
+	if player:
+		player.process_mode = Node.PROCESS_MODE_PAUSABLE
+	if turn_timer:
+		turn_timer.process_mode = Node.PROCESS_MODE_PAUSABLE
+	if ui:
+		ui.process_mode = Node.PROCESS_MODE_PAUSABLE
 	# Drive the timer by time, not actions
 	if turn_timer and not turn_timer.timeout.is_connected(_on_turn_timer_timeout):
 		turn_timer.timeout.connect(_on_turn_timer_timeout)
@@ -39,6 +51,7 @@ func _ready() -> void:
 
 func reset_game() -> void:
 	game_over = false
+	_set_paused(false)
 	time_remaining = total_time
 	# Configure and start the ticking timer
 	if turn_timer:
@@ -122,15 +135,20 @@ func _on_turn_timer_timeout() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		# Pause/unpause with Escape
+		if event.keycode == KEY_ESCAPE:
+			_set_paused(not _paused)
+			return
 		# Toggle debug overlay with Ctrl
 		if event.keycode == KEY_CTRL:
 			debug_enabled = not debug_enabled
 			if ui.has_method("set_debug_visible"):
 				ui.set_debug_visible(debug_enabled)
+	# If paused, ignore other processing triggers here
 
 func _process(delta: float) -> void:
 	# Periodically refresh debug overlay
-	if not debug_enabled:
+	if _paused or not debug_enabled:
 		return
 	_debug_accum += delta
 	if _debug_accum >= 0.5:
@@ -186,6 +204,12 @@ func _update_debug_overlay() -> void:
 
 	var text := "Level: %s\nWeeds/s: %.2f\nGrass/s: %.2f" % [level_str, weeds_per_sec, grass_per_sec]
 	ui.set_debug_text(text)
+
+func _set_paused(v: bool) -> void:
+	_paused = v
+	get_tree().paused = v
+	if ui and ui.has_method("show_paused"):
+		ui.show_paused(v)
 
 # --- Input Map helpers ---
 

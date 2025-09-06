@@ -7,6 +7,7 @@ signal restart_pressed
 @onready var turn_label: Label = $TurnLabel
 @onready var restart_button: Button = $RestartButton
 @onready var debug_label: Label = $DebugLabel
+@onready var pause_overlay: ColorRect = $PauseOverlay
 
 func _ready() -> void:
     restart_button.pressed.connect(_on_restart)
@@ -15,6 +16,8 @@ func _ready() -> void:
     show_game_over(false, false)
     if debug_label:
         debug_label.visible = false
+    if pause_overlay:
+        pause_overlay.visible = false
 
 func set_score(v: int) -> void:
     score_label.text = "Score: %d" % v
@@ -40,3 +43,7 @@ func set_debug_visible(v: bool) -> void:
 func set_debug_text(t: String) -> void:
     if debug_label:
         debug_label.text = t
+
+func show_paused(v: bool) -> void:
+    if pause_overlay:
+        pause_overlay.visible = v
