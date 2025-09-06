@@ -20,6 +20,16 @@ const SCORE_WEED := -2
 var tiles: Array = []
 var _atlas_source_id: int = -1
 
+# Mapping from our logical tile ids -> atlas coordinates.
+# Defaults to first 5 tiles on the top row. Configure in Inspector if desired.
+@export var tile_atlas_positions: Array[Vector2i] = [
+	Vector2i(0, 0), # BAD
+	Vector2i(1, 0), # OK
+	Vector2i(2, 0), # GOOD
+	Vector2i(3, 0), # WEED
+	Vector2i(4, 0)  # DIRT
+]
+
 func _ready() -> void:
 	_ensure_tileset()
 	_init_grid()
@@ -65,7 +75,8 @@ func set_tile(p: Vector2i, id: int) -> void:
 		return
 	tiles[p.y][p.x] = id
 	if _atlas_source_id != -1:
-		set_cell(p, _atlas_source_id, Vector2i(id, 0))
+		var coord := tile_atlas_positions[id] if id >= 0 and id < tile_atlas_positions.size() else Vector2i(id, 0)
+		set_cell(p, _atlas_source_id, coord)
 	emit_signal("tile_changed", p, id)
 
 func apply_player_action(p: Vector2i, action: String) -> bool:
@@ -115,34 +126,44 @@ func calc_score() -> int:
 # --- Rendering helpers ---
 
 func _ensure_tileset() -> void:
-	if tile_set != null and _atlas_source_id != -1:
-		return
-	var colors: Array = [
-		Color(0.55, 0.20, 0.20), # BAD - dull red/brown
-		Color(0.30, 0.60, 0.30), # OK - green
-		Color(0.10, 0.80, 0.10), # GOOD - bright green
-		Color(0.45, 0.10, 0.55), # WEED - purple
-		Color(0.45, 0.35, 0.25)  # DIRT - brown
-	]
-	var tile_count := colors.size()
-	var atlas_img := Image.create(TILE * tile_count, TILE, false, Image.FORMAT_RGBA8)
-	atlas_img.fill(Color(0,0,0,0))
-	for i in range(tile_count):
-		var tile_img := Image.create(TILE, TILE, false, Image.FORMAT_RGBA8)
-		tile_img.fill(colors[i])
-		atlas_img.blit_rect(tile_img, Rect2i(Vector2i.ZERO, Vector2i(TILE, TILE)), Vector2i(i * TILE, 0))
-	var tex := ImageTexture.create_from_image(atlas_img)
+	# Prefer any TileSet assigned via the scene (Inspector).
+	if tile_set != null:
+		# Find the first atlas source and cache its id.
+		var count := tile_set.get_source_count()
+		for i in range(count):
+			var sid := tile_set.get_source_id(i)
+			var src := tile_set.get_source(sid)
+			if src is TileSetAtlasSource:
+				_atlas_source_id = sid
+				break
+	# If not found, fall back to a minimal generated tileset so the game still runs.
+	if _atlas_source_id == -1:
+		var colors: Array = [
+			Color(0.55, 0.20, 0.20), # BAD - dull red/brown
+			Color(0.30, 0.60, 0.30), # OK - green
+			Color(0.10, 0.80, 0.10), # GOOD - bright green
+			Color(0.45, 0.10, 0.55), # WEED - purple
+			Color(0.45, 0.35, 0.25)  # DIRT - brown
+		]
+		var tile_count := colors.size()
+		var atlas_img := Image.create(TILE * tile_count, TILE, false, Image.FORMAT_RGBA8)
+		atlas_img.fill(Color(0,0,0,0))
+		for i in range(tile_count):
+			var tile_img := Image.create(TILE, TILE, false, Image.FORMAT_RGBA8)
+			tile_img.fill(colors[i])
+			atlas_img.blit_rect(tile_img, Rect2i(Vector2i.ZERO, Vector2i(TILE, TILE)), Vector2i(i * TILE, 0))
+		var tex := ImageTexture.create_from_image(atlas_img)
 
-	var atlas := TileSetAtlasSource.new()
-	atlas.texture = tex
-	atlas.texture_region_size = Vector2i(TILE, TILE)
-	for i in range(tile_count):
-		atlas.create_tile(Vector2i(i, 0))
+		var atlas := TileSetAtlasSource.new()
+		atlas.texture = tex
+		atlas.texture_region_size = Vector2i(TILE, TILE)
+		for i in range(tile_count):
+			atlas.create_tile(Vector2i(i, 0))
 
-	var ts := TileSet.new()
-	ts.tile_size = Vector2i(TILE, TILE)
-	_atlas_source_id = ts.add_source(atlas)
-	tile_set = ts
+		var ts := TileSet.new()
+		ts.tile_size = Vector2i(TILE, TILE)
+		_atlas_source_id = ts.add_source(atlas)
+		tile_set = ts
 
 func _redraw_all() -> void:
 	if _atlas_source_id == -1:
@@ -151,4 +172,5 @@ func _redraw_all() -> void:
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			var id: int = tiles[y][x]
-			set_cell(Vector2i(x, y), _atlas_source_id, Vector2i(id, 0))
+			var coord := tile_atlas_positions[id] if id >= 0 and id < tile_atlas_positions.size() else Vector2i(id, 0)
+			set_cell(Vector2i(x, y), _atlas_source_id, coord)
