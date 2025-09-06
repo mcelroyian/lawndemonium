@@ -10,10 +10,7 @@ var time_remaining: float = 180.0
 var threshold: int = 5
 var game_over: bool = false
 
-# Config: global target weeds spawned per minute across the whole board
-@export var weeds_per_minute: float = 3.0
-# Legacy: per-eligible-tile per-second chance; used only if weeds_per_minute <= 0
-@export var weed_spawn_chance_per_second: float = 0.005
+# Spawn rates are now driven by LevelConfig via Board auto-ticking.
 
 func _ready() -> void:
 	_ensure_input_map()
@@ -101,21 +98,6 @@ func _on_turn_timer_timeout() -> void:
 	if turn_timer:
 		# Make countdown 4x faster than before
 		amount = 20.0 * turn_timer.wait_time
-		# Apply weed growth based on config; stable global rate if set
-		if board and board.has_method("apply_weed_rules") and turn_timer:
-			var dt: float = float(turn_timer.wait_time)
-			var per_tick: float = 0.0
-			if weeds_per_minute > 0.0 and board.has_method("count_eligible_weed_tiles"):
-				var eligible: int = board.count_eligible_weed_tiles()
-				if eligible > 0:
-					var weeds_per_sec: float = weeds_per_minute / 60.0
-					var p_sec_per_tile: float = weeds_per_sec / float(eligible)
-					per_tick = 1.0 - pow(1.0 - clamp(p_sec_per_tile, 0.0, 1.0), dt)
-			else:
-				var p_sec: float = clamp(weed_spawn_chance_per_second, 0.0, 1.0)
-				per_tick = 1.0 - pow(1.0 - p_sec, dt)
-			if per_tick > 0.0:
-				board.apply_weed_rules(per_tick)
 	_tick_time(amount)
 	_check_game_over()
 

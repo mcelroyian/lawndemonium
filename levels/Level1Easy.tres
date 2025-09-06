@@ -5,12 +5,12 @@
 [resource]
 script = ExtResource("1")
 weed_spawn_mode = "absolute"
-weed_spawn_chance = 0.005
+# A gentle spawn rate per tick (see weed_tick_interval_sec)
+weed_spawn_chance = 0.02
 weed_spawn_multiplier = 1.0
 weed_spawn_ratio = 0.0
 weed_tick_interval_sec = 9999.0
-weed_respawn_cooldown_sec = 99999.0
-grass_tick_interval_sec = 9999.0
+weed_respawn_cooldown_sec = 6.0
+grass_tick_interval_sec = 3.0
 p_good_to_ok = 0.02
 p_ok_to_bad = 0.01
-

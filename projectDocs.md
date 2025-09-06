@@ -47,10 +47,12 @@
 - `scripts/Board.gd`
   - `GRID_SIZE`, `TILE`, score constants.
   - `randomize_start(weed_count, bad_count)` controls initial layout.
+  - Spawn/decay rules are driven by `LevelConfig` and tick automatically.
+- `scripts/LevelConfig.gd` + `levels/*.tres`
+  - Single source of truth for spawn rates and grass decay.
+  - Key fields: `weed_spawn_mode` (recommend "absolute"), `weed_spawn_chance`, `weed_tick_interval_sec`, `weed_respawn_cooldown_sec`, `grass_tick_interval_sec`, `p_good_to_ok`, `p_ok_to_bad`.
 - `scripts/Main.gd`
   - `total_time`, `threshold` for win condition.
-  - `weeds_per_minute` (export): target weeds spawned per minute globally (preferred).
-  - `weed_spawn_chance_per_second` (legacy): used only if `weeds_per_minute <= 0`.
   - `_ensure_input_map()` to add bindings.
 - `scripts/Player.gd`
   - `configure(grid, tile)` keeps cursor size in sync with board.
@@ -80,7 +82,14 @@
   - Fix: `Board.gd` now generates a runtime TileSet and draws all cells in `_redraw_all()`.
 - WASD didn’t work initially
   - Cause: No Input Map actions defined.
-  - Fix: `_ensure_input_map()` adds actions and keys on startup.
+- Fix: `_ensure_input_map()` adds actions and keys on startup.
+
+## Config Simplification
+- Previous duplication: global `weeds_per_minute` and legacy per‑second chance in `Main.gd`, plus level‑based settings in `LevelConfig`.
+- Change: Removed `weeds_per_minute`/`weed_spawn_chance_per_second` from `Main.gd`. Board now uses `LevelConfig` exclusively for weed spawn and grass decay.
+- How to tune difficulty:
+  - Edit `levels/Level1Easy.tres` and `levels/Level2Medium.tres` (or add more) to adjust `weed_spawn_chance` and intervals.
+  - If you only want a single global setting, keep one `.tres` and point Level Manager to it for all levels.
 
 ## Suggested Next Steps
 - Center the board and use a fixed 640×640 window for a tighter presentation.
