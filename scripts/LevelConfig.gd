@@ -20,4 +20,3 @@ extends Resource
 # Grass decay probabilities per grass tick
 @export var p_good_to_ok: float = 0.05
 @export var p_ok_to_bad: float = 0.03
-

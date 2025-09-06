@@ -26,6 +26,7 @@ var weed_block_until: Array = [] # 2D float array; timestamp until which weeds c
 var _weed_timer := 0.0
 var _grass_timer := 0.0
 var _now := 0.0
+var _was_perfect := false
 
 @export var auto_tick_enabled: bool = true
 @export var global_base_spawn_chance: float = 0.10
@@ -106,6 +107,7 @@ func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 		set_tile(p2, BAD)
 	emit_signal("score_changed", calc_score())
 	_redraw_all()
+	_was_perfect = false
 	
 func grid_to_local(p: Vector2i) -> Vector2:
 	return Vector2(p.x * TILE, p.y * TILE)
@@ -146,6 +148,7 @@ func apply_player_action(p: Vector2i, action: String) -> bool:
 		elif t == OK:
 			set_tile(p, GOOD)
 			changed = true
+	_check_advance_on_perfect()
 	return changed
 
 func apply_weed_rules(spawn_chance: float = 0.10) -> void:
@@ -207,6 +210,24 @@ func calc_score() -> int:
 			if weed_mask[y][x]:
 				s += SCORE_WEED
 	return s
+
+func is_perfect() -> bool:
+	for y in range(GRID_SIZE.y):
+		for x in range(GRID_SIZE.x):
+			if weed_mask[y][x]:
+				return false
+			if tiles[y][x] != GOOD:
+				return false
+	return true
+
+func _check_advance_on_perfect() -> void:
+	var perfect := is_perfect()
+	if perfect and not _was_perfect:
+		_was_perfect = true
+		if _level_manager and _level_manager.has_method("advance_level"):
+			_level_manager.call("advance_level")
+	elif not perfect:
+		_was_perfect = false
 
 func count_eligible_weed_tiles() -> int:
 	# Eligible tiles are those that can become weeds per rules: BAD or OK
@@ -301,7 +322,7 @@ func _wire_level_config() -> void:
 	# Prefer explicit export if set
 	_active_config = level_config if level_config is LevelConfig else null
 	# Try to obtain LevelManager from autoload if available
-	_level_manager = get_node_or_null("/root/LevelManager")
+	_level_manager = get_node_or_null("/root/LevelMgr")
 	if _level_manager and _level_manager.has_method("get_config"):
 		_active_config = _level_manager.call("get_config")
 		if _level_manager.has_signal("level_changed"):
@@ -312,6 +333,7 @@ func _wire_level_config() -> void:
 
 func _on_level_changed(_index: int, cfg: LevelConfig) -> void:
 	_active_config = cfg
+	_was_perfect = false
 
 func _get_config() -> LevelConfig:
 	return _active_config

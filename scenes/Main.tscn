@@ -8,6 +8,7 @@
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1")
+weeds_per_minute = 0.0
 weed_spawn_chance_per_second = 0.025
 
 [node name="Board" type="TileMapLayer" parent="."]
