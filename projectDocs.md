@@ -25,7 +25,7 @@
 
 ## Key Mechanics
 - Grid size: `Vector2i(8,8)`; tile size: `TILE = 64` (see `scripts/Board.gd:7`).
-- Actions: mow/pull (Space to act, Tab to toggle label text only; action auto-contextual).
+- Actions: mow/pull. Mow auto-acts on movement; Space is used for pull. Tab toggles the current action label.
 - Turn flow: time tick → weed growth (probabilistic) → score/time UI update → win/lose check.
 - Scoring: GOOD=+1, OK=0, BAD=-1, WEED=-2 (see `Board.gd`).
 - Timer: driven by `TurnTimer`; win if `score >= threshold` when time reaches 0.
@@ -60,7 +60,7 @@
 ## Run/Debug
 1. Open Godot 4 and load the project folder.
 2. Press Play to run `scenes/Main.tscn`.
-3. Controls: WASD/Arrows to move, Space to act, Tab to toggle action label.
+3. Controls: WASD/Arrows to move (mow auto-acts while moving when selected), Space to act for pull, Tab to toggle action label.
 4. Debug Overlay: press Ctrl to toggle a right-aligned transparent overlay showing:
    - current level index, expected weed spawns per second, and expected grass changes per second.
 

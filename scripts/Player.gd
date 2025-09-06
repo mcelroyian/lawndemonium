@@ -28,6 +28,9 @@ func _unhandled_input(event: InputEvent) -> void:
         emit_signal("performed_action", cursor, current_action)
     elif event.is_action_pressed("toggle_action"):
         current_action = ("pull" if current_action == "mow" else "mow")
+        # If switching into mow, immediately act on the current tile
+        if current_action == "mow":
+            emit_signal("performed_action", cursor, current_action)
 
 func move_cursor(delta: Vector2i) -> void:
     var nx: int = clamp(cursor.x + delta.x, 0, grid_size.x - 1)
@@ -35,6 +38,9 @@ func move_cursor(delta: Vector2i) -> void:
     cursor = Vector2i(nx, ny)
     _sync_position()
     queue_redraw()
+    # Auto-act when in mow mode so movement mows without pressing Space
+    if current_action == "mow":
+        emit_signal("performed_action", cursor, current_action)
 
 func _draw() -> void:
     var size := Vector2(tile, tile)

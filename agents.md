@@ -33,7 +33,7 @@ A minimal overview of the project structure and runtime architecture to help qui
 1. `TurnTimer` timeout fires at a fixed interval.
 2. `Main.gd` decreases remaining time and checks win/lose against `threshold`.
 3. `Board.gd` advances rules (weed spawn, grass decay) based on `LevelConfig` timing.
-4. Player input triggers contextual action at the cursor (mow/pull) via `Board.gd`.
+4. Player input triggers contextual action at the cursor (mow auto-acts on movement; pull via Space) via `Board.gd`.
 5. UI updates score/time each tick or on score change.
 
 ## Rendering
@@ -43,7 +43,7 @@ A minimal overview of the project structure and runtime architecture to help qui
 
 ## Input (Programmatic)
 - Bootstrapped in `Main.gd` to avoid editor-side setup.
-- Actions: `move_up/down/left/right` (WASD/Arrows), `action` (Space), `toggle_action` (Tab).
+- Actions: `move_up/down/left/right` (WASD/Arrows), `action` (Space for pull), `toggle_action` (Tab). When action is set to "mow", movement auto-performs mow.
 
 ## Configuration Touchpoints
 - Board: `GRID_SIZE`, `TILE`, score constants; `randomize_start()` for initial layout.
@@ -55,7 +55,7 @@ A minimal overview of the project structure and runtime architecture to help qui
 
 ## Run/Debug
 1. Open the folder in Godot 4 and run `scenes/Main.tscn` (Project → Play).
-2. Controls: WASD/Arrows to move, Space to act, Tab to toggle action label.
+2. Controls: WASD/Arrows to move (mow auto-acts when selected), Space to act for pull, Tab to toggle action label.
 3. Debug overlay: toggle with Ctrl (shows level and expected spawn/change rates).
 
 ## Notes & Gotchas
