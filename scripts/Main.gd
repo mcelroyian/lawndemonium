@@ -27,6 +27,10 @@ func _ready() -> void:
 		board.connect("score_changed", Callable(self, "_on_score_changed"))
 	if ui.has_signal("restart_pressed"):
 		ui.connect("restart_pressed", Callable(self, "_on_restart"))
+	# Reset timer whenever the level changes
+	var lm := get_node_or_null("/root/LevelMgr")
+	if lm and lm.has_signal("level_changed") and not lm.level_changed.is_connected(_on_level_changed):
+		lm.level_changed.connect(_on_level_changed)
 	# Ensure player uses Board's grid/tile sizes
 	if player.has_method("configure"):
 		player.configure(board.GRID_SIZE, board.TILE)
@@ -96,6 +100,14 @@ func _on_score_changed(_value: int) -> void:
 
 func _on_restart() -> void:
 	reset_game()
+
+func _on_level_changed(_index: int, _cfg: LevelConfig) -> void:
+	# When a new level loads, give the player a fresh timer.
+	game_over = false
+	time_remaining = total_time
+	_update_time_ui()
+	if ui.has_method("show_game_over"):
+		ui.show_game_over(false, false)
 
 func _on_turn_timer_timeout() -> void:
 	if game_over:
