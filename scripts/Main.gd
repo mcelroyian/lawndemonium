@@ -38,6 +38,9 @@ var _debug_accum: float = 0.0
 
 func _ready() -> void:
 	_ensure_input_map()
+	# Ensure this node can be discovered by Board for perfect-level handling
+	if not is_in_group("MainRoot"):
+		add_to_group("MainRoot", true)
 	# Create a fullscreen background layer behind gameplay/UI if texture exists
 	_ensure_background()
 	# Ensure this node still processes input while tree is paused (Godot 4)
@@ -105,8 +108,11 @@ func reset_game() -> void:
 	if ui.has_method("set_debug_visible"):
 		ui.set_debug_visible(debug_enabled)
 	# Ensure action UI starts in Mow
-	if ui.has_method("set_active_action"):
-		ui.set_active_action("mow")
+	var lm := get_node_or_null("/root/LevelMgr")
+	var cfg: LevelConfig = null
+	if lm and lm.has_method("get_config"):
+		cfg = lm.call("get_config")
+	_apply_start_tool_deferred(cfg)
 
 	# Spawn/reset NPC walker and sync to current time
 	_spawn_or_reset_npc()
@@ -189,17 +195,62 @@ func _on_ui_action_selected(action: String) -> void:
 
 func _on_level_changed(_index: int, _cfg: LevelConfig) -> void:
 	# When a new level loads, give the player a fresh timer.
+	_set_paused(false)
 	game_over = false
 	time_remaining = total_time
 	_update_time_ui()
+	# Restart the ticking timer like in reset_game
+	if turn_timer:
+		turn_timer.stop()
+		turn_timer.wait_time = 0.25
+		turn_timer.one_shot = false
+		turn_timer.start()
+	# Ensure board auto-ticking resumes
 	if board and board.has_method("set_auto_tick_enabled"):
 		board.call("set_auto_tick_enabled", true)
+	# Reinitialize board state from the new level's config
+	if board and board.has_method("randomize_start"):
+		board.randomize_start()
+	# Hide any game-over overlay
 	if ui.has_method("show_game_over"):
 		ui.show_game_over(false, false)
-
-	# Ensure NPC is reset at new level
+	# Ensure NPC is reset at new level and synced to time
 	_spawn_or_reset_npc()
 	_update_npc_from_time()
+	# Refresh score UI after board reinit
+	_update_score_ui()
+	# Set starting tool per level config
+	_apply_start_tool_deferred(_cfg)
+
+func _apply_start_tool_deferred(cfg: LevelConfig) -> void:
+	# Apply start tool after current frame to avoid any late UI resets
+	call_deferred("_apply_start_tool_now", cfg)
+
+func _apply_start_tool_now(cfg: LevelConfig) -> void:
+	# Fetch config lazily if not provided or not ready yet
+	if cfg == null:
+		var lm2 := get_node_or_null("/root/LevelMgr")
+		if lm2 and lm2.has_method("get_config"):
+			cfg = lm2.call("get_config")
+	var start_tool := "mow"
+	if cfg and cfg.has_method("get"):
+		var v = cfg.get("start_tool")
+		if typeof(v) == TYPE_STRING and (v == "mow" or v == "pull"):
+			start_tool = v
+	if ui and ui.has_method("set_active_action"):
+		ui.set_active_action(start_tool)
+	if player and player.has_method("set_action"):
+		player.call("set_action", start_tool)
+	if ui and ui.has_method("set_turn_text"):
+		ui.set_turn_text(start_tool.capitalize())
+	# Extra safety: re-apply once more next frame in case other init overrides it
+	call_deferred("_apply_start_tool_final", start_tool)
+
+func _apply_start_tool_final(start_tool: String) -> void:
+	if ui and ui.has_method("set_active_action"):
+		ui.set_active_action(start_tool)
+	if player and player.has_method("set_action"):
+		player.call("set_action", start_tool)
 
 func _on_turn_timer_timeout() -> void:
 	if game_over:
@@ -212,6 +263,15 @@ func _on_turn_timer_timeout() -> void:
 	_tick_time(amount)
 	_check_game_over()
 	_update_npc_from_time()
+
+func force_end_now() -> void:
+	# Public hook used by Board when a level becomes perfect.
+	# Fast-forward the timer to 0 so the standard inspector/game-over flow runs.
+	if game_over:
+		return
+	time_remaining = 0.0
+	_update_time_ui()
+	_check_game_over()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:

@@ -396,8 +396,21 @@ func _check_advance_on_perfect() -> void:
 	var perfect := is_perfect()
 	if perfect and not _was_perfect:
 		_was_perfect = true
-		if _level_manager and _level_manager.has_method("advance_level"):
-			_level_manager.call("advance_level")
+		# Instead of jumping levels immediately, signal the main flow to end the level now
+		# by fast-forwarding the timer to 0. Main.gd handles NPC/overlay consistently.
+		var main := get_tree().get_first_node_in_group("MainRoot")
+		if main == null:
+			var current := get_tree().current_scene
+			if current:
+				main = current.get_node_or_null("Main")
+			if main == null:
+				main = get_node_or_null("/root/Main")
+		if main and main.has_method("force_end_now"):
+			main.call("force_end_now")
+		else:
+			# Fallback: advance level directly if no handler is present
+			if _level_manager and _level_manager.has_method("advance_level"):
+				_level_manager.call("advance_level")
 	elif not perfect:
 		_was_perfect = false
 

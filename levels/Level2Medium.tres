@@ -19,3 +19,4 @@ start_all_mown = true
 start_weed_count = 10
 start_bad_count = -1
 start_mown_count = -1
+start_tool = "pull"

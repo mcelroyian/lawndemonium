@@ -7,7 +7,7 @@ signal action_changed(action: String)
 @export var tile: int = 32
 
 var cursor: Vector2i = Vector2i(0, 0)
-var current_action: String = "mow"
+var current_action: String = "pull"
 var facing_dir: String = "south"
 var _sprite_rest_offset: Vector2 = Vector2.ZERO
 

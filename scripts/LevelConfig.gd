@@ -37,3 +37,6 @@ extends Resource
 @export var start_bad_count: int = -1
 # If >= 0, sets an exact number of MOWN tiles at start
 @export var start_mown_count: int = -1
+
+# Starting tool/action for the player UI: "mow" or "pull"
+@export_enum("mow", "pull") var start_tool: String = "mow"

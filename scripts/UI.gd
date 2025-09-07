@@ -40,8 +40,7 @@ func _ready() -> void:
         pause_overlay.visible = false
     if game_over_overlay:
         game_over_overlay.visible = false
-    # Default selection
-    set_active_action("mow")
+    # Default selection comes from Main via start_tool; do not force here
 
 func set_score(v: int) -> void:
     score_label.text = "Score: %d" % v
