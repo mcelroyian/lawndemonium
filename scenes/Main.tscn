@@ -4316,8 +4316,8 @@ script = ExtResource("3")
 [node name="LPCAnimatedSprite2D" type="AnimatedSprite2D" parent="Cursor"]
 z_index = 20
 sprite_frames = SubResource("SpriteFrames_q8u5g")
-animation = &"spellcast_south"
-frame_progress = 0.462707
+animation = &"walk_east"
+frame_progress = 0.178959
 script = ExtResource("5_nxtc6")
 spritesheets_path = "res://assets"
 animation_data = SubResource("Resource_lhr70")

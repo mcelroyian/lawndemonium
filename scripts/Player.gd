@@ -7,10 +7,14 @@ signal performed_action(cell: Vector2i, action: String)
 
 var cursor: Vector2i = Vector2i(0, 0)
 var current_action: String = "mow"
+var facing_dir: String = "south"
+
+@onready var anim: LPCAnimatedSprite2D = $LPCAnimatedSprite2D
 
 func _ready() -> void:
     _sync_position()
     queue_redraw()
+    _update_idle_animation()
 
 func _sync_position() -> void:
     position = Vector2(cursor.x * tile, cursor.y * tile)
@@ -38,6 +42,7 @@ func move_cursor(delta: Vector2i) -> void:
     cursor = Vector2i(nx, ny)
     _sync_position()
     queue_redraw()
+    _update_walk_animation(delta)
     # Auto-act when in mow mode so movement mows without pressing Space
     if current_action == "mow":
         emit_signal("performed_action", cursor, current_action)
@@ -53,3 +58,44 @@ func configure(grid: Vector2i, tile_size: int) -> void:
     tile = tile_size
     _sync_position()
     queue_redraw()
+
+func _process(_delta: float) -> void:
+    var v := Vector2i(0, 0)
+    if Input.is_action_pressed("move_left"):
+        v.x -= 1
+    if Input.is_action_pressed("move_right"):
+        v.x += 1
+    if Input.is_action_pressed("move_up"):
+        v.y -= 1
+    if Input.is_action_pressed("move_down"):
+        v.y += 1
+    if v == Vector2i.ZERO:
+        _update_idle_animation()
+    else:
+        _update_walk_animation(v)
+
+func _update_walk_animation(v: Vector2i) -> void:
+    if not anim:
+        return
+    var dir := _vec_to_dir(v)
+    if dir != "":
+        facing_dir = dir
+        anim.play("walk_" + dir)
+
+func _update_idle_animation() -> void:
+    if not anim:
+        return
+    anim.play("idle_" + facing_dir)
+
+func _vec_to_dir(v: Vector2i) -> String:
+    if abs(v.x) >= abs(v.y):
+        if v.x > 0:
+            return "east"
+        elif v.x < 0:
+            return "west"
+    # prefer vertical when x == 0 or smaller magnitude
+    if v.y > 0:
+        return "south"
+    elif v.y < 0:
+        return "north"
+    return ""
