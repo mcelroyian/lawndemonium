@@ -1,6 +1,7 @@
 extends Node2D
 
 signal performed_action(cell: Vector2i, action: String)
+signal action_changed(action: String)
 
 @export var grid_size: Vector2i = Vector2i(8, 8)
 @export var tile: int = 32
@@ -41,9 +42,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		emit_signal("performed_action", cursor, current_action)
 	elif event.is_action_pressed("toggle_action"):
 		current_action = ("pull" if current_action == "mow" else "mow")
+		emit_signal("action_changed", current_action)
 		# If switching into mow, immediately act on the current tile
 		if current_action == "mow":
 			emit_signal("performed_action", cursor, current_action)
+
+func set_action(action: String) -> void:
+	# External setter from UI; mirrors toggle behavior
+	if action != "mow" and action != "pull":
+		return
+	current_action = action
+	emit_signal("action_changed", current_action)
+	if current_action == "mow":
+		# Immediately act on the current tile when entering mow mode
+		emit_signal("performed_action", cursor, current_action)
 
 func _try_start_step(delta: Vector2i) -> void:
 	if moving:

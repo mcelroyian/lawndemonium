@@ -4304,6 +4304,10 @@ custom_frames = {
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1")
+background_align_x = 0.49
+background_align_y = 0.52
+playfield_margin_top = 0
+playfield_margin_right = 0
 
 [node name="Playfield" type="Node2D" parent="."]
 
@@ -4319,7 +4323,7 @@ script = ExtResource("3")
 z_index = 20
 sprite_frames = SubResource("SpriteFrames_q8u5g")
 animation = &"spellcast_south"
-frame_progress = 0.538555
+frame_progress = 0.798893
 script = ExtResource("5_nxtc6")
 spritesheets_path = "res://assets"
 animation_data = SubResource("Resource_lhr70")
@@ -4353,6 +4357,23 @@ visible = false
 offset_left = 8.0
 offset_top = 84.0
 text = "Restart"
+
+[node name="ActionButtons" type="HBoxContainer" parent="UI"]
+offset_left = 8.0
+offset_top = 120.0
+theme_override_constants/separation = 8
+
+[node name="MowButton" type="Button" parent="UI/ActionButtons"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+toggle_mode = true
+text = "Mow"
+
+[node name="WeedButton" type="Button" parent="UI/ActionButtons"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+toggle_mode = true
+text = "Weed"
 
 [node name="DebugLabel" type="Label" parent="UI"]
 modulate = Color(1, 1, 1, 0.85)

@@ -14,7 +14,10 @@ var _paused: bool = false
 
 # Optional background image shown behind the playfield.
 @export var background_texture_path: String = "res://assets/bd-background.png"
+@export_range(0.0, 1.0, 0.01) var background_align_x: float = 0.0 # 0=left, 0.5=center, 1=right
+@export_range(0.0, 1.0, 0.01) var background_align_y: float = 0.0 # 0=top, 0.5=center, 1=bottom
 var _bg_layer: CanvasLayer
+var _bg_sprite: Sprite2D
 
 # Playfield layout
 @export var playfield_auto_layout: bool = true
@@ -47,10 +50,15 @@ func _ready() -> void:
 		turn_timer.timeout.connect(_on_turn_timer_timeout)
 	if player.has_signal("performed_action"):
 		player.connect("performed_action", Callable(self, "_on_player_action"))
+	if player.has_signal("action_changed"):
+		player.connect("action_changed", Callable(self, "_on_player_action_changed"))
 	if board.has_signal("score_changed"):
 		board.connect("score_changed", Callable(self, "_on_score_changed"))
 	if ui.has_signal("restart_pressed"):
 		ui.connect("restart_pressed", Callable(self, "_on_restart"))
+	# UI action buttons -> player action
+	if ui.has_signal("action_selected"):
+		ui.connect("action_selected", Callable(self, "_on_ui_action_selected"))
 	# Reset timer whenever the level changes
 	var lm := get_node_or_null("/root/LevelMgr")
 	if lm and lm.has_signal("level_changed") and not lm.level_changed.is_connected(_on_level_changed):
@@ -86,6 +94,9 @@ func reset_game() -> void:
 		ui.show_game_over(false, false)
 	if ui.has_method("set_debug_visible"):
 		ui.set_debug_visible(debug_enabled)
+	# Ensure action UI starts in Mow
+	if ui.has_method("set_active_action"):
+		ui.set_active_action("mow")
 
 func _on_player_action(cell: Vector2i, action: String) -> void:
 	if game_over:
@@ -97,6 +108,8 @@ func _on_player_action(cell: Vector2i, action: String) -> void:
 	_check_game_over()
 	if ui.has_method("set_turn_text"):
 		ui.set_turn_text(action.capitalize())
+	if ui.has_method("set_active_action"):
+		ui.set_active_action(action)
 
 func _tick_time(amount: float) -> void:
 	# Decrease remaining time by a given amount (seconds)
@@ -133,6 +146,14 @@ func _on_score_changed(_value: int) -> void:
 
 func _on_restart() -> void:
 	reset_game()
+
+func _on_ui_action_selected(action: String) -> void:
+	if player and player.has_method("set_action"):
+		player.call("set_action", action)
+	if ui.has_method("set_turn_text"):
+		ui.set_turn_text(action.capitalize())
+	if ui.has_method("set_active_action"):
+		ui.set_active_action(action)
 
 func _on_level_changed(_index: int, _cfg: LevelConfig) -> void:
 	# When a new level loads, give the player a fresh timer.
@@ -227,6 +248,14 @@ func _update_debug_overlay() -> void:
 	var text := "Level: %s\nWeeds/s: %.2f\nGrass/s: %.2f" % [level_str, weeds_per_sec, grass_per_sec]
 	ui.set_debug_text(text)
 
+func _on_player_action_changed(action: String) -> void:
+	# Keep UI highlight in sync when action changes via keyboard/UI
+	if ui:
+		if ui.has_method("set_turn_text"):
+			ui.set_turn_text(action.capitalize())
+		if ui.has_method("set_active_action"):
+			ui.set_active_action(action)
+
 func _set_paused(v: bool) -> void:
 	_paused = v
 	get_tree().paused = v
@@ -235,44 +264,62 @@ func _set_paused(v: bool) -> void:
 
 # --- Background helper ---
 func _ensure_background() -> void:
-	if _bg_layer != null:
+	if _bg_layer == null:
+		_bg_layer = CanvasLayer.new()
+		_bg_layer.layer = -100  # draw behind everything else
+		add_child(_bg_layer)
+	# Clean up older TextureRect variant if present
+	var old: Node = _bg_layer.get_node_or_null("Background")
+	if old:
+		old.queue_free()
+	if _bg_sprite != null:
 		return
 	if background_texture_path == "" or not ResourceLoader.exists(background_texture_path):
 		return
 	var tex: Texture2D = load(background_texture_path)
 	if tex == null:
 		return
-	_bg_layer = CanvasLayer.new()
-	_bg_layer.layer = -100  # draw behind everything else
-	add_child(_bg_layer)
+	_bg_sprite = Sprite2D.new()
+	_bg_sprite.name = "BackgroundSprite"
+	_bg_sprite.texture = tex
+	_bg_sprite.centered = false
+	_bg_layer.add_child(_bg_sprite)
+	_layout_background()
 
-	var tr := TextureRect.new()
-	tr.name = "Background"
-	tr.texture = tex
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Fullscreen anchors
-	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
-	tr.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	tr.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_bg_layer.add_child(tr)
+func _layout_background() -> void:
+	if _bg_sprite == null or _bg_sprite.texture == null:
+		return
+	var vp: Viewport = get_viewport()
+	if vp == null:
+		return
+	var vs: Vector2 = Vector2(vp.get_visible_rect().size)
+	var ts: Vector2 = _bg_sprite.texture.get_size()
+	if ts.x <= 0.0 or ts.y <= 0.0:
+		return
+	var scale_factor: float = max(vs.x / ts.x, vs.y / ts.y)
+	_bg_sprite.scale = Vector2(scale_factor, scale_factor)
+	var scaled: Vector2 = ts * scale_factor
+	var pos_x: float = (vs.x - scaled.x) * clamp(background_align_x, 0.0, 1.0)
+	var pos_y: float = (vs.y - scaled.y) * clamp(background_align_y, 0.0, 1.0)
+	_bg_sprite.position = Vector2(pos_x, pos_y)
 
 # --- Layout helper ---
 func _layout_playfield() -> void:
 	if not playfield_auto_layout or playfield == null or board == null:
 		return
-	var vp := get_viewport()
+	var vp: Viewport = get_viewport()
 	if vp == null:
 		return
 	var size: Vector2i = vp.get_visible_rect().size
 	var width: int = board.GRID_SIZE.x * board.TILE
 	var height: int = board.GRID_SIZE.y * board.TILE
-	var x := size.x - width - playfield_margin_right
-	var y := playfield_margin_top
+	var x: int = size.x - width - playfield_margin_right
+	var y: int = playfield_margin_top
 	playfield.position = Vector2(x, y)
 
 func _on_viewport_resized() -> void:
 	_layout_playfield()
+	_layout_background()
 
 # --- Input Map helpers ---
 
