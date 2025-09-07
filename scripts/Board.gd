@@ -19,6 +19,7 @@ const SCORE_WEED := -2
 
 var tiles: Array = []
 var _atlas_source_id: int = -1
+var _atlas_source_ids: Array[int] = [] # Ordered list of atlas source IDs (by source index)
 var weed_mask: Array = [] # 2D bool array matching GRID_SIZE; true if weed present
 var weed_block_until: Array = [] # 2D float array; timestamp until which weeds cannot respawn
 
@@ -45,9 +46,20 @@ var _level_manager: Node
 @export var tile_atlas_positions: Array[Vector2i] = [
 	Vector2i(0, 9), # BAD
 	Vector2i(13, 11), # OK (unchanged; specify if different)
-	Vector2i(0, 3), # GOOD
+	Vector2i(0, 0), # GOOD (now uses source index 1 at 0,0)
 	Vector2i(0, 5), # WEED
 	Vector2i(0, 0)  # DIRT
+]
+
+# Optional per-tile source selection (index into TileSet sources order).
+# 0 = first atlas source, 1 = second, etc. Defaults keep all on first source.
+# Set GOOD to 1 to use the new grass-mown tile in assets/tiles.tres.
+@export var tile_atlas_sources: Array[int] = [
+	0, # BAD
+	0, # OK
+	1, # GOOD -> use second atlas source (grass-mown)
+	0, # WEED
+	0  # DIRT
 ]
 
 func _ready() -> void:
@@ -156,7 +168,13 @@ func set_tile(p: Vector2i, id: int) -> void:
 	tiles[p.y][p.x] = id
 	if _atlas_source_id != -1:
 		var coord := tile_atlas_positions[id] if id >= 0 and id < tile_atlas_positions.size() else Vector2i(id, 0)
-		set_cell(p, _atlas_source_id, coord)
+		var src_index: int = 0
+		if id >= 0 and id < tile_atlas_sources.size():
+			src_index = max(0, tile_atlas_sources[id])
+		var src_id: int = _atlas_source_id
+		if src_index >= 0 and src_index < _atlas_source_ids.size():
+			src_id = _atlas_source_ids[src_index]
+		set_cell(p, src_id, coord)
 	emit_signal("tile_changed", p, id)
 
 func apply_player_action(p: Vector2i, action: String) -> bool:
@@ -279,12 +297,14 @@ func _ensure_tileset() -> void:
 	if tile_set != null:
 		# Find the first atlas source and cache its id.
 		var count := tile_set.get_source_count()
+		_atlas_source_ids.clear()
 		for i in range(count):
 			var sid := tile_set.get_source_id(i)
 			var src := tile_set.get_source(sid)
 			if src is TileSetAtlasSource:
-				_atlas_source_id = sid
-				break
+				_atlas_source_ids.append(sid)
+		if _atlas_source_ids.size() > 0:
+			_atlas_source_id = _atlas_source_ids[0]
 	# If not found, fall back to a minimal generated tileset so the game still runs.
 	if _atlas_source_id == -1:
 		var colors: Array = [
@@ -312,6 +332,7 @@ func _ensure_tileset() -> void:
 		var ts := TileSet.new()
 		ts.tile_size = Vector2i(TILE, TILE)
 		_atlas_source_id = ts.add_source(atlas)
+		_atlas_source_ids = [_atlas_source_id]
 		tile_set = ts
 
 	# Ensure the weeds layer shares this tileset so atlas coords match
@@ -330,13 +351,25 @@ func _redraw_all() -> void:
 		for x in range(GRID_SIZE.x):
 			var id: int = tiles[y][x]
 			var coord := tile_atlas_positions[id] if id >= 0 and id < tile_atlas_positions.size() else Vector2i(id, 0)
-			set_cell(Vector2i(x, y), _atlas_source_id, coord)
+			var src_index: int = 0
+			if id >= 0 and id < tile_atlas_sources.size():
+				src_index = max(0, tile_atlas_sources[id])
+			var src_id: int = _atlas_source_id
+			if src_index >= 0 and src_index < _atlas_source_ids.size():
+				src_id = _atlas_source_ids[src_index]
+			set_cell(Vector2i(x, y), src_id, coord)
 	if weeds_layer:
 		weeds_layer.clear()
 		for y in range(GRID_SIZE.y):
 			for x in range(GRID_SIZE.x):
 				if weed_mask[y][x]:
-					weeds_layer.set_cell(Vector2i(x, y), _atlas_source_id, weed_atlas_position)
+					var weed_src_index: int = 0
+					if WEED >= 0 and WEED < tile_atlas_sources.size():
+						weed_src_index = max(0, tile_atlas_sources[WEED])
+					var weed_src_id: int = _atlas_source_id
+					if weed_src_index >= 0 and weed_src_index < _atlas_source_ids.size():
+						weed_src_id = _atlas_source_ids[weed_src_index]
+					weeds_layer.set_cell(Vector2i(x, y), weed_src_id, weed_atlas_position)
 
 func _set_weed(p: Vector2i, present: bool) -> void:
 	if not is_in_bounds(p):
@@ -344,7 +377,13 @@ func _set_weed(p: Vector2i, present: bool) -> void:
 	weed_mask[p.y][p.x] = present
 	if weeds_layer and _atlas_source_id != -1:
 		if present:
-			weeds_layer.set_cell(p, _atlas_source_id, weed_atlas_position)
+			var weed_src_index: int = 0
+			if WEED >= 0 and WEED < tile_atlas_sources.size():
+				weed_src_index = max(0, tile_atlas_sources[WEED])
+			var weed_src_id: int = _atlas_source_id
+			if weed_src_index >= 0 and weed_src_index < _atlas_source_ids.size():
+				weed_src_id = _atlas_source_ids[weed_src_index]
+			weeds_layer.set_cell(p, weed_src_id, weed_atlas_position)
 		else:
 			weeds_layer.erase_cell(p)
 	emit_signal("score_changed", calc_score())

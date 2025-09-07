@@ -1,6 +1,7 @@
-[gd_resource type="TileSet" load_steps=3 format=3 uid="uid://bk4mjfkyyhxok"]
+[gd_resource type="TileSet" load_steps=5 format=3 uid="uid://bk4mjfkyyhxok"]
 
 [ext_resource type="Texture2D" uid="uid://c1wgnm6cdlsd0" path="res://scenes/tilesheet_complete.png" id="1_8y8ej"]
+[ext_resource type="Texture2D" uid="uid://bwiajfoj300a4" path="res://assets/grass-mown.png" id="2_ms3jd"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_ms3jd"]
 texture = ExtResource("1_8y8ej")
@@ -269,6 +270,12 @@ texture_region_size = Vector2i(64, 64)
 20:11/0 = 0
 21:11/0 = 0
 
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_x1i2l"]
+texture = ExtResource("2_ms3jd")
+texture_region_size = Vector2i(64, 64)
+0:0/0 = 0
+
 [resource]
 tile_size = Vector2i(64, 64)
 sources/0 = SubResource("TileSetAtlasSource_ms3jd")
+sources/1 = SubResource("TileSetAtlasSource_x1i2l")
