@@ -11,6 +11,11 @@ var facing_dir: String = "south"
 
 @onready var anim: LPCAnimatedSprite2D = $LPCAnimatedSprite2D
 
+# Tweened movement config
+var moving: bool = false
+@export var step_time: float = 0.24
+var _move_tween: Tween
+
 func _ready() -> void:
     _sync_position()
     queue_redraw()
@@ -21,13 +26,13 @@ func _sync_position() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("move_up"):
-        move_cursor(Vector2i(0, -1))
+        _try_start_step(Vector2i(0, -1))
     elif event.is_action_pressed("move_down"):
-        move_cursor(Vector2i(0, 1))
+        _try_start_step(Vector2i(0, 1))
     elif event.is_action_pressed("move_left"):
-        move_cursor(Vector2i(-1, 0))
+        _try_start_step(Vector2i(-1, 0))
     elif event.is_action_pressed("move_right"):
-        move_cursor(Vector2i(1, 0))
+        _try_start_step(Vector2i(1, 0))
     elif event.is_action_pressed("action"):
         emit_signal("performed_action", cursor, current_action)
     elif event.is_action_pressed("toggle_action"):
@@ -36,16 +41,37 @@ func _unhandled_input(event: InputEvent) -> void:
         if current_action == "mow":
             emit_signal("performed_action", cursor, current_action)
 
-func move_cursor(delta: Vector2i) -> void:
+func _try_start_step(delta: Vector2i) -> void:
+    if moving:
+        return
     var nx: int = clamp(cursor.x + delta.x, 0, grid_size.x - 1)
     var ny: int = clamp(cursor.y + delta.y, 0, grid_size.y - 1)
-    cursor = Vector2i(nx, ny)
-    _sync_position()
+    var target: Vector2i = Vector2i(nx, ny)
+    if target == cursor:
+        # Face the attempted direction but don't move
+        var dir := _vec_to_dir(delta)
+        if dir != "":
+            facing_dir = dir
+            _update_idle_animation()
+        return
+
+    # Update logical cursor immediately; tween the visual position
+    var dir2 := _vec_to_dir(delta)
+    if dir2 != "":
+        facing_dir = dir2
+    var from_pos := position
+    cursor = target
+    var to_pos := Vector2(cursor.x * tile, cursor.y * tile)
     queue_redraw()
-    _update_walk_animation(delta)
-    # Auto-act when in mow mode so movement mows without pressing Space
-    if current_action == "mow":
-        emit_signal("performed_action", cursor, current_action)
+
+    moving = true
+    _play_walk_animation()
+
+    if _move_tween and _move_tween.is_running():
+        _move_tween.kill()
+    _move_tween = create_tween().set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+    _move_tween.tween_property(self, "position", to_pos, step_time)
+    _move_tween.finished.connect(_on_step_finished)
 
 func _draw() -> void:
     var size := Vector2(tile, tile)
@@ -60,32 +86,34 @@ func configure(grid: Vector2i, tile_size: int) -> void:
     queue_redraw()
 
 func _process(_delta: float) -> void:
-    var v := Vector2i(0, 0)
-    if Input.is_action_pressed("move_left"):
-        v.x -= 1
-    if Input.is_action_pressed("move_right"):
-        v.x += 1
-    if Input.is_action_pressed("move_up"):
-        v.y -= 1
-    if Input.is_action_pressed("move_down"):
-        v.y += 1
+    if moving:
+        return
+    # If stationary, face held direction; otherwise idle
+    var v := _read_input_vector()
     if v == Vector2i.ZERO:
         _update_idle_animation()
     else:
-        _update_walk_animation(v)
+        var dir := _vec_to_dir(v)
+        if dir != "":
+            facing_dir = dir
+            _update_idle_animation()
 
-func _update_walk_animation(v: Vector2i) -> void:
+func _play_walk_animation() -> void:
     if not anim:
         return
-    var dir := _vec_to_dir(v)
-    if dir != "":
-        facing_dir = dir
-        anim.play("walk_" + dir)
+    var name := "walk_" + facing_dir
+    if anim.animation != name:
+        anim.play(name)
+    # One loop per step
+    anim.speed_scale = 1.0 / max(step_time, 0.01)
 
 func _update_idle_animation() -> void:
     if not anim:
         return
-    anim.play("idle_" + facing_dir)
+    var name := "idle_" + facing_dir
+    if anim.animation != name:
+        anim.play(name)
+    anim.speed_scale = 1.0
 
 func _vec_to_dir(v: Vector2i) -> String:
     if abs(v.x) >= abs(v.y):
@@ -99,3 +127,33 @@ func _vec_to_dir(v: Vector2i) -> String:
     elif v.y < 0:
         return "north"
     return ""
+
+func _read_input_vector() -> Vector2i:
+    var v := Vector2i.ZERO
+    if Input.is_action_pressed("move_left"):
+        v.x -= 1
+    if Input.is_action_pressed("move_right"):
+        v.x += 1
+    if Input.is_action_pressed("move_up"):
+        v.y -= 1
+    if Input.is_action_pressed("move_down"):
+        v.y += 1
+    return v
+
+func _on_step_finished() -> void:
+    moving = false
+    _update_idle_animation()
+    # Auto-act when arriving on a tile in mow mode
+    if current_action == "mow":
+        emit_signal("performed_action", cursor, current_action)
+    # If a direction is still held, chain the next step
+    var v := _read_input_vector()
+    if v != Vector2i.ZERO:
+        _try_start_step(_dominant_axis(v))
+
+func _dominant_axis(v: Vector2i) -> Vector2i:
+    # Collapse to a single axis step based on dominant component
+    if abs(v.x) >= abs(v.y):
+        return Vector2i(signi(v.x), 0)
+    else:
+        return Vector2i(0, signi(v.y))
