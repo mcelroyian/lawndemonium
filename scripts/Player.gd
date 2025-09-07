@@ -8,6 +8,7 @@ signal performed_action(cell: Vector2i, action: String)
 var cursor: Vector2i = Vector2i(0, 0)
 var current_action: String = "mow"
 var facing_dir: String = "south"
+var _sprite_rest_offset: Vector2 = Vector2.ZERO
 
 @onready var anim: LPCAnimatedSprite2D = $LPCAnimatedSprite2D
 
@@ -20,9 +21,12 @@ func _ready() -> void:
     _sync_position()
     queue_redraw()
     _update_idle_animation()
+    _update_sprite_offset()
 
 func _sync_position() -> void:
     position = Vector2(cursor.x * tile, cursor.y * tile)
+    if not moving and anim:
+        anim.position = _sprite_rest_offset
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("move_up"):
@@ -55,22 +59,25 @@ func _try_start_step(delta: Vector2i) -> void:
             _update_idle_animation()
         return
 
-    # Update logical cursor immediately; tween the visual position
+    # Update logical cursor immediately (snap highlight); tween only the sprite child
     var dir2 := _vec_to_dir(delta)
     if dir2 != "":
         facing_dir = dir2
-    var from_pos := position
     cursor = target
-    var to_pos := Vector2(cursor.x * tile, cursor.y * tile)
+    _sync_position() # snap the selector box to the destination tile right away
     queue_redraw()
 
     moving = true
     _play_walk_animation()
 
+    # Prepare tween on the child sprite from previous-cell offset -> zero
     if _move_tween and _move_tween.is_running():
         _move_tween.kill()
+    # Start from the previous cell offset so the sprite slides into the snapped cursor
+    if anim:
+        anim.position = _sprite_rest_offset + Vector2(-delta.x * tile, -delta.y * tile)
     _move_tween = create_tween().set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-    _move_tween.tween_property(self, "position", to_pos, step_time)
+    _move_tween.tween_property(anim, "position", _sprite_rest_offset, step_time)
     _move_tween.finished.connect(_on_step_finished)
 
 func _draw() -> void:
@@ -84,6 +91,7 @@ func configure(grid: Vector2i, tile_size: int) -> void:
     tile = tile_size
     _sync_position()
     queue_redraw()
+    _update_sprite_offset()
 
 func _process(_delta: float) -> void:
     if moving:
@@ -142,6 +150,8 @@ func _read_input_vector() -> Vector2i:
 
 func _on_step_finished() -> void:
     moving = false
+    if anim:
+        anim.position = _sprite_rest_offset
     _update_idle_animation()
     # Auto-act when arriving on a tile in mow mode
     if current_action == "mow":
@@ -157,3 +167,7 @@ func _dominant_axis(v: Vector2i) -> Vector2i:
         return Vector2i(signi(v.x), 0)
     else:
         return Vector2i(0, signi(v.y))
+
+func _update_sprite_offset() -> void:
+    # Place sprite at the center of the tile while idle/after tween
+    _sprite_rest_offset = Vector2(float(tile) * 0.5, float(tile) * 0.5)
