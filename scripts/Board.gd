@@ -44,8 +44,8 @@ var _level_manager: Node
 # Mapping from our logical tile ids -> atlas coordinates.
 # Defaults to first 5 tiles on the top row. Configure in Inspector if desired.
 @export var tile_atlas_positions: Array[Vector2i] = [
-	Vector2i(0, 9), # BAD
-	Vector2i(13, 11), # OK (unchanged; specify if different)
+	Vector2i(0, 0), # BAD (uses grass-grown)
+	Vector2i(0, 0), # OK (uses grass-grown)
 	Vector2i(0, 0), # GOOD (now uses source index 1 at 0,0)
 	Vector2i(0, 5), # WEED
 	Vector2i(0, 0)  # DIRT
@@ -55,8 +55,8 @@ var _level_manager: Node
 # 0 = first atlas source, 1 = second, etc. Defaults keep all on first source.
 # Set GOOD to 1 to use the new grass-mown tile in assets/tiles.tres.
 @export var tile_atlas_sources: Array[int] = [
-	0, # BAD
-	0, # OK
+	2, # BAD -> use third atlas source (grass-grown)
+	1, # OK -> use third atlas source (grass-grown)
 	1, # GOOD -> use second atlas source (grass-mown)
 	0, # WEED
 	0  # DIRT
