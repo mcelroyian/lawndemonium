@@ -15,9 +15,9 @@ const DIRT := 3
 const BAD := GROWN
 const GOOD := MOWN
 
-const SCORE_BAD := -1
+const SCORE_BAD := -5
 const SCORE_GOOD := 1
-const SCORE_WEED := -2
+const SCORE_WEED := -5
 
 var tiles: Array = []
 var _atlas_source_id: int = -1

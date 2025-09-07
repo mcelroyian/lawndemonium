@@ -4324,7 +4324,7 @@ script = ExtResource("3")
 z_index = 20
 sprite_frames = SubResource("SpriteFrames_q8u5g")
 animation = &"spellcast_south"
-frame_progress = 0.984545
+frame_progress = 0.403229
 script = ExtResource("5_nxtc6")
 spritesheets_path = "res://assets"
 animation_data = SubResource("Resource_lhr70")
@@ -4411,6 +4411,61 @@ size_flags_horizontal = 4
 text = "Paused"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="GameOverOverlay" type="ColorRect" parent="UI"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Panel" type="Panel" parent="UI/GameOverOverlay"]
+layout_mode = 2
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -100.0
+offset_right = 160.0
+offset_bottom = 120.0
+
+[node name="VBox" type="VBoxContainer" parent="UI/GameOverOverlay/Panel"]
+layout_mode = 2
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 304.0
+offset_bottom = 204.0
+theme_override_constants/separation = 10
+
+[node name="MessageLabel" type="Label" parent="UI/GameOverOverlay/Panel/VBox"]
+layout_mode = 2
+text = "Game Over"
+horizontal_alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="UI/GameOverOverlay/Panel/VBox"]
+layout_mode = 2
+text = "Score: 0"
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="UI/GameOverOverlay/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="RestartButton" type="Button" parent="UI/GameOverOverlay/Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Restart"
+
+[node name="NextLevelButton" type="Button" parent="UI/GameOverOverlay/Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Next Level"
+
+[node name="LevelSelectButton" type="Button" parent="UI/GameOverOverlay/Panel/VBox/Buttons"]
+layout_mode = 2
+text = "Level Select"
 
 [node name="SFX" type="AudioStreamPlayer" parent="."]
 

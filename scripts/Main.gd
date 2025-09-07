@@ -62,6 +62,10 @@ func _ready() -> void:
 		board.connect("score_changed", Callable(self, "_on_score_changed"))
 	if ui.has_signal("restart_pressed"):
 		ui.connect("restart_pressed", Callable(self, "_on_restart"))
+	if ui.has_signal("level_select_pressed"):
+		ui.connect("level_select_pressed", Callable(self, "_on_level_select"))
+	if ui.has_signal("next_level_pressed"):
+		ui.connect("next_level_pressed", Callable(self, "_on_next_level"))
 	# UI action buttons -> player action
 	if ui.has_signal("action_selected"):
 		ui.connect("action_selected", Callable(self, "_on_ui_action_selected"))
@@ -135,6 +139,8 @@ func _check_game_over() -> void:
 		if board and board.has_method("set_auto_tick_enabled"):
 			board.call("set_auto_tick_enabled", false)
 		if ui.has_method("show_game_over"):
+			if ui.has_method("set_game_over_score"):
+				ui.set_game_over_score(_current_score())
 			ui.show_game_over(true, win)
 
 func _update_score_ui() -> void:
@@ -156,6 +162,22 @@ func _on_score_changed(_value: int) -> void:
 
 func _on_restart() -> void:
 	reset_game()
+
+func _on_level_select() -> void:
+	# Route to level select screen if available; fallback to restart
+	var start := load("res://scenes/StartScreen.tscn")
+	if start:
+		get_tree().change_scene_to_packed(start)
+	else:
+		reset_game()
+
+func _on_next_level() -> void:
+	var lm := get_node_or_null("/root/LevelMgr")
+	if lm and lm.has_method("advance_level"):
+		lm.call("advance_level")
+		return
+	# Fallback: try to reload scene (acts like restart)
+	_on_restart()
 
 func _on_ui_action_selected(action: String) -> void:
 	if player and player.has_method("set_action"):
