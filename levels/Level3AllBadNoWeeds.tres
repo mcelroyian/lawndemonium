@@ -19,8 +19,11 @@ weed_requires_adjacency = true
 weed_seed_when_empty = false
 
 # Initial state: All GROWN, no weeds
-start_all_bad = true
+# In Board.gd, GROWN is the default ground tile. To start with all grown and
+# no weeds, do NOT set start_all_bad (that would force a uniform state branch),
+# instead leave both flags false and explicitly set counts: 64 grown, 0 weeds.
+start_all_bad = false
 start_all_mown = false
 start_weed_count = 0
 start_bad_count = 64
-start_mown_count = -1
+start_mown_count = 0
