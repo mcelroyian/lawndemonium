@@ -4314,7 +4314,12 @@ playfield_margin_right = 0
 [node name="Board" type="TileMapLayer" parent="Playfield"]
 tile_set = ExtResource("2_vcsgt")
 script = ExtResource("2")
+auto_tick_enabled = null
+global_base_spawn_chance = null
 weeds_layer_path = NodePath("../Weeds")
+weed_atlas_position = null
+tile_atlas_positions = null
+tile_atlas_sources = null
 
 [node name="Cursor" type="Node2D" parent="Playfield"]
 script = ExtResource("3")
@@ -4323,7 +4328,7 @@ script = ExtResource("3")
 z_index = 20
 sprite_frames = SubResource("SpriteFrames_q8u5g")
 animation = &"spellcast_south"
-frame_progress = 0.11879
+frame_progress = 0.600714
 script = ExtResource("5_nxtc6")
 spritesheets_path = "res://assets"
 animation_data = SubResource("Resource_lhr70")

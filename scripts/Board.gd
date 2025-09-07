@@ -114,22 +114,108 @@ func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 
 	# If level config requests a specific initial state, honor it.
 	if cfg is LevelConfig:
-		if cfg.start_all_bad:
-			# All tiles GROWN, no weeds
+		if cfg.start_all_mown or cfg.start_all_bad:
+			var make_mown := cfg.start_all_mown
+			# Initialize uniform ground state, clear weeds
 			for y in range(GRID_SIZE.y):
 				for x in range(GRID_SIZE.x):
-					set_tile(Vector2i(x, y), GROWN)
+					set_tile(Vector2i(x, y), MOWN if make_mown else GROWN)
 					_set_weed(Vector2i(x, y), false)
+			# Place initial weeds if requested
+			if cfg.start_weed_count >= 0:
+				var eligible: Array[Vector2i] = []
+				for y2 in range(GRID_SIZE.y):
+					for x2 in range(GRID_SIZE.x):
+						var p2 := Vector2i(x2, y2)
+						if not weed_mask[y2][x2]:
+							eligible.append(p2)
+				eligible.shuffle()
+				for i in range(min(cfg.start_weed_count, eligible.size())):
+					_set_weed(eligible[i], true)
 			emit_signal("score_changed", calc_score())
 			_redraw_all()
 			_was_perfect = false
 			return
 
-		# Override counts if provided by config
-		if cfg.start_weed_count >= 0:
-			weed_count = cfg.start_weed_count
-		if cfg.start_bad_count >= 0:
-			bad_count = cfg.start_bad_count
+		# Override counts if provided by config (exact placements)
+		var want_weed := cfg.start_weed_count
+		var want_bad := cfg.start_bad_count
+		var want_mown := cfg.start_mown_count
+
+		if want_weed >= 0 or want_bad >= 0 or want_mown >= 0:
+			# Start from a clean slate (all grown, no weeds), then place exact amounts
+			for y in range(GRID_SIZE.y):
+				for x in range(GRID_SIZE.x):
+					set_tile(Vector2i(x, y), GROWN)
+					_set_weed(Vector2i(x, y), false)
+			var coords: Array[Vector2i] = []
+			for y in range(GRID_SIZE.y):
+				for x in range(GRID_SIZE.x):
+					coords.append(Vector2i(x, y))
+			coords.shuffle()
+
+			# Place MOWN tiles
+			if want_mown >= 0:
+				for i in range(min(want_mown, coords.size())):
+					var p: Vector2i = coords.pop_back()
+					set_tile(p, MOWN)
+
+			# Optionally place additional BAD tiles (kept as grown)
+			if want_bad >= 0:
+				# Ensure exactly want_bad GROWN tiles. Since default is all grown,
+				# we only need to flip excess MOWN back or ensure count via flip order.
+				# Simpler: if want_bad < total, ensure only (total - want_bad) are MOWN
+				var total: int = GRID_SIZE.x * GRID_SIZE.y
+				var target_mown: int = max(0, total - want_bad)
+				# Adjust current mown count to target by flipping tiles
+				var to_flip := 0
+				# Count current MOWN
+				var current_mown := 0
+				for y2 in range(GRID_SIZE.y):
+					for x2 in range(GRID_SIZE.x):
+						if tiles[y2][x2] == MOWN:
+							current_mown += 1
+				if current_mown > target_mown:
+					to_flip = current_mown - target_mown
+					# Flip arbitrary MOWN back to GROWN
+					for y2 in range(GRID_SIZE.y):
+						for x2 in range(GRID_SIZE.x):
+							if to_flip <= 0:
+								break
+							if tiles[y2][x2] == MOWN:
+								set_tile(Vector2i(x2, y2), GROWN)
+								to_flip -= 1
+						if to_flip <= 0:
+							break
+				elif current_mown < target_mown:
+					to_flip = target_mown - current_mown
+					# Flip arbitrary GROWN to MOWN
+					for y2 in range(GRID_SIZE.y):
+						for x2 in range(GRID_SIZE.x):
+							if to_flip <= 0:
+								break
+							if tiles[y2][x2] == GROWN:
+								set_tile(Vector2i(x2, y2), MOWN)
+								to_flip -= 1
+						if to_flip <= 0:
+							break
+
+			# Place weeds last on eligible tiles without weeds
+			if want_weed >= 0:
+				var eligible: Array[Vector2i] = []
+				for y2 in range(GRID_SIZE.y):
+					for x2 in range(GRID_SIZE.x):
+						var p2 := Vector2i(x2, y2)
+						if not weed_mask[y2][x2]:
+							eligible.append(p2)
+				eligible.shuffle()
+				for i in range(min(want_weed, eligible.size())):
+					_set_weed(eligible[i], true)
+
+			emit_signal("score_changed", calc_score())
+			_redraw_all()
+			_was_perfect = false
+			return
 
 	# Default/randomized start
 	var coords: Array[Vector2i] = []
@@ -204,7 +290,8 @@ func apply_weed_rules(spawn_chance: float = 0.10) -> void:
 		for x in range(GRID_SIZE.x):
 			var p := Vector2i(x, y)
 			var t := get_tile(p)
-			if (t == GROWN) and not weed_mask[y][x]:
+			# Allow weeds on either GROWN or MOWN tiles
+			if ((t == GROWN) or (t == MOWN)) and not weed_mask[y][x]:
 				# Respect cooldown
 				if _now < weed_block_until[y][x]:
 					continue
@@ -218,7 +305,8 @@ func apply_weed_rules_ratio(ratio: float) -> void:
 		for x in range(GRID_SIZE.x):
 			var p := Vector2i(x, y)
 			var t := get_tile(p)
-			if (t == GROWN) and not weed_mask[y][x]:
+			# Allow weeds on either GROWN or MOWN tiles
+			if ((t == GROWN) or (t == MOWN)) and not weed_mask[y][x]:
 				if _now >= weed_block_until[y][x]:
 					eligible.append(p)
 	if eligible.is_empty():
@@ -275,12 +363,12 @@ func _check_advance_on_perfect() -> void:
 		_was_perfect = false
 
 func count_eligible_weed_tiles() -> int:
-	# Eligible tiles are those that can become weeds: GROWN
+	# Eligible tiles are those that can become weeds: GROWN or MOWN
 	var c: int = 0
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			var t: int = tiles[y][x]
-			if (t == GROWN) and not weed_mask[y][x]:
+			if ((t == GROWN) or (t == MOWN)) and not weed_mask[y][x]:
 				c += 1
 	return c
 

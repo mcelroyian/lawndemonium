@@ -23,7 +23,11 @@ extends Resource
 # Initial board state overrides
 # If true, start with every tile as BAD and no weeds
 @export var start_all_bad: bool = false
+# If true, start with every tile as MOWN and no weeds
+@export var start_all_mown: bool = false
 # If >= 0, overrides initial weeds placed by Board.randomize_start()
 @export var start_weed_count: int = -1
 # If >= 0, overrides initial BAD tiles placed by Board.randomize_start()
 @export var start_bad_count: int = -1
+# If >= 0, sets an exact number of MOWN tiles at start
+@export var start_mown_count: int = -1
