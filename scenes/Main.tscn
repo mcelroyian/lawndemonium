@@ -4305,23 +4305,29 @@ custom_frames = {
 [node name="Main" type="Node2D"]
 script = ExtResource("1")
 
-[node name="Board" type="TileMapLayer" parent="."]
+[node name="Playfield" type="Node2D" parent="."]
+
+[node name="Board" type="TileMapLayer" parent="Playfield"]
 tile_set = ExtResource("2_vcsgt")
 script = ExtResource("2")
 weeds_layer_path = NodePath("../Weeds")
 
-[node name="Cursor" type="Node2D" parent="."]
+[node name="Cursor" type="Node2D" parent="Playfield"]
 script = ExtResource("3")
 
-[node name="LPCAnimatedSprite2D" type="AnimatedSprite2D" parent="Cursor"]
+[node name="LPCAnimatedSprite2D" type="AnimatedSprite2D" parent="Playfield/Cursor"]
 z_index = 20
 sprite_frames = SubResource("SpriteFrames_q8u5g")
 animation = &"spellcast_south"
-frame_progress = 0.419136
+frame_progress = 0.538555
 script = ExtResource("5_nxtc6")
 spritesheets_path = "res://assets"
 animation_data = SubResource("Resource_lhr70")
 metadata/_custom_type_script = "uid://dn724gbsh1jky"
+
+[node name="Weeds" type="TileMapLayer" parent="Playfield"]
+z_index = 10
+tile_set = ExtResource("2_vcsgt")
 
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("4")
@@ -4387,7 +4393,3 @@ vertical_alignment = 1
 [node name="SFX" type="AudioStreamPlayer" parent="."]
 
 [node name="TurnTimer" type="Timer" parent="."]
-
-[node name="Weeds" type="TileMapLayer" parent="."]
-z_index = 10
-tile_set = ExtResource("2_vcsgt")

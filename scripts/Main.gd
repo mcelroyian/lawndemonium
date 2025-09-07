@@ -1,7 +1,8 @@
 extends Node2D
 
-@onready var board: TileMapLayer = $Board
-@onready var player: Node2D = $Cursor
+@onready var playfield: Node2D = $Playfield
+@onready var board: TileMapLayer = $Playfield/Board
+@onready var player: Node2D = $Playfield/Cursor
 @onready var ui: CanvasLayer = $UI
 @onready var turn_timer: Timer = $TurnTimer
 
@@ -11,6 +12,15 @@ var threshold: int = 5
 var game_over: bool = false
 var _paused: bool = false
 
+# Optional background image shown behind the playfield.
+@export var background_texture_path: String = "res://assets/bd-background.png"
+var _bg_layer: CanvasLayer
+
+# Playfield layout
+@export var playfield_auto_layout: bool = true
+@export var playfield_margin_top: int = 16
+@export var playfield_margin_right: int = 16
+
 # Debug overlay state
 var debug_enabled: bool = false
 var _debug_accum: float = 0.0
@@ -19,6 +29,8 @@ var _debug_accum: float = 0.0
 
 func _ready() -> void:
 	_ensure_input_map()
+	# Create a fullscreen background layer behind gameplay/UI if texture exists
+	_ensure_background()
 	# Ensure this node still processes input while tree is paused (Godot 4)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Children should pause normally even if parent is ALWAYS
@@ -46,6 +58,10 @@ func _ready() -> void:
 	# Ensure player uses Board's grid/tile sizes
 	if player.has_method("configure"):
 		player.configure(board.GRID_SIZE, board.TILE)
+	# Auto-place playfield in top-right with margins
+	_layout_playfield()
+	if get_viewport():
+		get_viewport().size_changed.connect(_on_viewport_resized)
 	reset_game()
 	set_process(true)
 
@@ -216,6 +232,47 @@ func _set_paused(v: bool) -> void:
 	get_tree().paused = v
 	if ui and ui.has_method("show_paused"):
 		ui.show_paused(v)
+
+# --- Background helper ---
+func _ensure_background() -> void:
+	if _bg_layer != null:
+		return
+	if background_texture_path == "" or not ResourceLoader.exists(background_texture_path):
+		return
+	var tex: Texture2D = load(background_texture_path)
+	if tex == null:
+		return
+	_bg_layer = CanvasLayer.new()
+	_bg_layer.layer = -100  # draw behind everything else
+	add_child(_bg_layer)
+
+	var tr := TextureRect.new()
+	tr.name = "Background"
+	tr.texture = tex
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Fullscreen anchors
+	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tr.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tr.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_bg_layer.add_child(tr)
+
+# --- Layout helper ---
+func _layout_playfield() -> void:
+	if not playfield_auto_layout or playfield == null or board == null:
+		return
+	var vp := get_viewport()
+	if vp == null:
+		return
+	var size: Vector2i = vp.get_visible_rect().size
+	var width: int = board.GRID_SIZE.x * board.TILE
+	var height: int = board.GRID_SIZE.y * board.TILE
+	var x := size.x - width - playfield_margin_right
+	var y := playfield_margin_top
+	playfield.position = Vector2(x, y)
+
+func _on_viewport_resized() -> void:
+	_layout_playfield()
 
 # --- Input Map helpers ---
 
