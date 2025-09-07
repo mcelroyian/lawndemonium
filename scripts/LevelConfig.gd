@@ -17,9 +17,8 @@ extends Resource
 @export var weed_respawn_cooldown_sec: float = 6.0
 @export var grass_tick_interval_sec: float = 3.0
 
-# Grass decay probabilities per grass tick
-@export var p_good_to_ok: float = 0.05
-@export var p_ok_to_bad: float = 0.03
+# Grass regrowth probability per grass tick (mown -> grown)
+@export var p_mown_to_grown: float = 0.05
 
 # Initial board state overrides
 # If true, start with every tile as BAD and no weeds

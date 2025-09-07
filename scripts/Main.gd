@@ -231,18 +231,15 @@ func _update_debug_overlay() -> void:
 			spawn_per_tick = float(eligible) * chance
 		weeds_per_sec = spawn_per_tick / max(0.001, cfg.weed_tick_interval_sec)
 
-		# Grass changes per second (expected decay)
-		var good_count := 0
-		var ok_count := 0
+		# Grass changes per second (expected regrowth: mown -> grown)
+		var mown_count := 0
 		var gs: Vector2i = board.GRID_SIZE
 		for y in range(gs.y):
 			for x in range(gs.x):
 				var id: int = board.get_tile(Vector2i(x, y))
-				if id == board.GOOD:
-					good_count += 1
-				elif id == board.OK:
-					ok_count += 1
-		var change_per_tick: float = float(good_count) * clamp(cfg.p_good_to_ok, 0.0, 1.0) + float(ok_count) * clamp(cfg.p_ok_to_bad, 0.0, 1.0)
+				if id == board.MOWN:
+					mown_count += 1
+		var change_per_tick: float = float(mown_count) * clamp(cfg.p_mown_to_grown, 0.0, 1.0)
 		grass_per_sec = change_per_tick / max(0.001, cfg.grass_tick_interval_sec)
 
 	var text := "Level: %s\nWeeds/s: %.2f\nGrass/s: %.2f" % [level_str, weeds_per_sec, grass_per_sec]

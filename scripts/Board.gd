@@ -6,14 +6,16 @@ signal score_changed(score: int)
 const GRID_SIZE: Vector2i = Vector2i(8, 8)
 const TILE: int = 64
 
-const BAD := 0
-const OK := 1
-const GOOD := 2
-const WEED := 3 # kept for atlas lookup, not stored in ground tiles
-const DIRT := 4
+const GROWN := 0
+const MOWN := 1
+const WEED := 2 # kept for atlas lookup, not stored in ground tiles
+const DIRT := 3
+
+# Temporary aliases for transition period (can be removed once UI/text fully updated)
+const BAD := GROWN
+const GOOD := MOWN
 
 const SCORE_BAD := -1
-const SCORE_OK := 0
 const SCORE_GOOD := 1
 const SCORE_WEED := -2
 
@@ -44,20 +46,18 @@ var _level_manager: Node
 # Mapping from our logical tile ids -> atlas coordinates.
 # Defaults to first 5 tiles on the top row. Configure in Inspector if desired.
 @export var tile_atlas_positions: Array[Vector2i] = [
-	Vector2i(0, 0), # BAD (uses grass-grown)
-	Vector2i(0, 0), # OK (uses grass-grown)
-	Vector2i(0, 0), # GOOD (now uses source index 1 at 0,0)
+	Vector2i(0, 0), # GROWN (grass-grown)
+	Vector2i(0, 0), # MOWN  (grass-mown)
 	Vector2i(0, 5), # WEED
 	Vector2i(0, 0)  # DIRT
 ]
 
 # Optional per-tile source selection (index into TileSet sources order).
-# 0 = first atlas source, 1 = second, etc. Defaults keep all on first source.
-# Set GOOD to 1 to use the new grass-mown tile in assets/tiles.tres.
+# 0 = first atlas source, 1 = second, etc.
+# Configure to use: source 2 = grass-grown, source 1 = grass-mown
 @export var tile_atlas_sources: Array[int] = [
-	2, # BAD -> use third atlas source (grass-grown)
-	1, # OK -> use third atlas source (grass-grown)
-	1, # GOOD -> use second atlas source (grass-mown)
+	2, # GROWN -> grass-grown (third atlas source)
+	1, # MOWN  -> grass-mown  (second atlas source)
 	0, # WEED
 	0  # DIRT
 ]
@@ -94,7 +94,7 @@ func _init_grid() -> void:
 		tiles[y] = []
 		tiles[y].resize(GRID_SIZE.x)
 		for x in range(tiles[y].size()):
-			tiles[y][x] = OK
+			tiles[y][x] = GROWN
 	weed_mask.resize(GRID_SIZE.y)
 	for y in range(weed_mask.size()):
 		weed_mask[y] = []
@@ -115,10 +115,10 @@ func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 	# If level config requests a specific initial state, honor it.
 	if cfg is LevelConfig:
 		if cfg.start_all_bad:
-			# All tiles BAD, no weeds
+			# All tiles GROWN, no weeds
 			for y in range(GRID_SIZE.y):
 				for x in range(GRID_SIZE.x):
-					set_tile(Vector2i(x, y), BAD)
+					set_tile(Vector2i(x, y), GROWN)
 					_set_weed(Vector2i(x, y), false)
 			emit_signal("score_changed", calc_score())
 			_redraw_all()
@@ -146,7 +146,7 @@ func randomize_start(weed_count: int = 6, bad_count: int = 6) -> void:
 		if coords.is_empty():
 			break
 		var p2: Vector2i = coords.pop_back()
-		set_tile(p2, BAD)
+		set_tile(p2, GROWN)
 	emit_signal("score_changed", calc_score())
 	_redraw_all()
 	_was_perfect = false
@@ -190,11 +190,9 @@ func apply_player_action(p: Vector2i, action: String) -> bool:
 			weed_block_until[p.y][p.x] = _now + cfg.weed_respawn_cooldown_sec
 			changed = true
 	else:
-		if t == BAD:
-			set_tile(p, OK)
-			changed = true
-		elif t == OK:
-			set_tile(p, GOOD)
+		# Mow once: GROWN -> MOWN; MOWN is no-op
+		if t == GROWN:
+			set_tile(p, MOWN)
 			changed = true
 	_check_advance_on_perfect()
 	return changed
@@ -206,7 +204,7 @@ func apply_weed_rules(spawn_chance: float = 0.10) -> void:
 		for x in range(GRID_SIZE.x):
 			var p := Vector2i(x, y)
 			var t := get_tile(p)
-			if (t == BAD or t == OK) and not weed_mask[y][x]:
+			if (t == GROWN) and not weed_mask[y][x]:
 				# Respect cooldown
 				if _now < weed_block_until[y][x]:
 					continue
@@ -220,7 +218,7 @@ func apply_weed_rules_ratio(ratio: float) -> void:
 		for x in range(GRID_SIZE.x):
 			var p := Vector2i(x, y)
 			var t := get_tile(p)
-			if (t == BAD or t == OK) and not weed_mask[y][x]:
+			if (t == GROWN) and not weed_mask[y][x]:
 				if _now >= weed_block_until[y][x]:
 					eligible.append(p)
 	if eligible.is_empty():
@@ -232,28 +230,24 @@ func apply_weed_rules_ratio(ratio: float) -> void:
 	for i in range(min(spawn_count, eligible.size())):
 		_set_weed(eligible[i], true)
 
-func apply_grass_decay(p_good_to_ok: float, p_ok_to_bad: float) -> void:
+func apply_grass_decay(p_mown_to_grown: float) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			var p := Vector2i(x, y)
 			var t := get_tile(p)
-			if t == GOOD and rng.randf() < clamp(p_good_to_ok, 0.0, 1.0):
-				set_tile(p, OK)
-			elif t == OK and rng.randf() < clamp(p_ok_to_bad, 0.0, 1.0):
-				set_tile(p, BAD)
+			if t == MOWN and rng.randf() < clamp(p_mown_to_grown, 0.0, 1.0):
+				set_tile(p, GROWN)
 
 func calc_score() -> int:
 	var s: int = 0
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			match tiles[y][x]:
-				GOOD:
+				MOWN:
 					s += SCORE_GOOD
-				OK:
-					s += SCORE_OK
-				BAD:
+				GROWN:
 					s += SCORE_BAD
 			if weed_mask[y][x]:
 				s += SCORE_WEED
@@ -262,12 +256,12 @@ func calc_score() -> int:
 func is_perfect() -> bool:
 	# Consider the board "perfect enough" to advance when:
 	#  - There are no weeds anywhere, and
-	#  - There are no BAD tiles (OK and GOOD are allowed)
+	#  - There are no GROWN tiles
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			if weed_mask[y][x]:
 				return false
-			if tiles[y][x] == BAD:
+			if tiles[y][x] == GROWN:
 				return false
 	return true
 
@@ -281,12 +275,12 @@ func _check_advance_on_perfect() -> void:
 		_was_perfect = false
 
 func count_eligible_weed_tiles() -> int:
-	# Eligible tiles are those that can become weeds per rules: BAD or OK
+	# Eligible tiles are those that can become weeds: GROWN
 	var c: int = 0
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
 			var t: int = tiles[y][x]
-			if (t == BAD or t == OK) and not weed_mask[y][x]:
+			if (t == GROWN) and not weed_mask[y][x]:
 				c += 1
 	return c
 
@@ -308,11 +302,10 @@ func _ensure_tileset() -> void:
 	# If not found, fall back to a minimal generated tileset so the game still runs.
 	if _atlas_source_id == -1:
 		var colors: Array = [
-			Color(0.55, 0.20, 0.20), # BAD - dull red/brown
-			Color(0.30, 0.60, 0.30), # OK - green
-			Color(0.10, 0.80, 0.10), # GOOD - bright green
-			Color(0.45, 0.10, 0.55), # WEED - purple
-			Color(0.45, 0.35, 0.25)  # DIRT - brown
+			Color(0.30, 0.60, 0.30), # GROWN - green
+			Color(0.10, 0.80, 0.10), # MOWN  - bright green
+			Color(0.45, 0.10, 0.55), # WEED  - purple
+			Color(0.45, 0.35, 0.25)  # DIRT  - brown
 		]
 		var tile_count := colors.size()
 		var atlas_img := Image.create(TILE * tile_count, TILE, false, Image.FORMAT_RGBA8)
@@ -428,4 +421,4 @@ func _tick_weeds(cfg: LevelConfig) -> void:
 		apply_weed_rules(chance)
 
 func _tick_grass(cfg: LevelConfig) -> void:
-	apply_grass_decay(cfg.p_good_to_ok, cfg.p_ok_to_bad)
+	apply_grass_decay(cfg.p_mown_to_grown)
