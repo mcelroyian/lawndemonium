@@ -15,8 +15,12 @@ weed_respawn_cooldown_sec = 6.0
 grass_tick_interval_sec = 9999.0
 # No regrowth needed here
 p_mown_to_grown = 0.0
+weed_requires_adjacency = true
+weed_seed_when_empty = false
 
 # Initial state: All GROWN, no weeds
 start_all_bad = true
+start_all_mown = false
 start_weed_count = 0
 start_bad_count = 64
+start_mown_count = -1
