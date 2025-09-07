@@ -286,29 +286,68 @@ func apply_player_action(p: Vector2i, action: String) -> bool:
 func apply_weed_rules(spawn_chance: float = 0.10) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
+	var cfg := _get_config()
+	var eligible: Array[Vector2i] = []
+	var any_weeds := false
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
-			var p := Vector2i(x, y)
+			if weed_mask[y][x]:
+				any_weeds = true
+				break
+		if any_weeds:
+			break
+	for y in range(GRID_SIZE.y):
+		for x in range(GRID_SIZE.x):
+			var p: Vector2i = Vector2i(x, y)
 			var t := get_tile(p)
-			# Allow weeds on either GROWN or MOWN tiles
-			if ((t == GROWN) or (t == MOWN)) and not weed_mask[y][x]:
-				# Respect cooldown
-				if _now < weed_block_until[y][x]:
-					continue
-				if rng.randf() < spawn_chance:
-					_set_weed(p, true)
+			if not ((t == GROWN) or (t == MOWN)):
+				continue
+			if weed_mask[y][x]:
+				continue
+			if _now < weed_block_until[y][x]:
+				continue
+			var ok := true
+			if cfg.weed_requires_adjacency:
+				if any_weeds:
+					ok = _has_adjacent_weed(p)
+				else:
+					ok = cfg.weed_seed_when_empty
+			if ok:
+				eligible.append(p)
+	for p in eligible:
+		if rng.randf() < spawn_chance:
+			_set_weed(p, true)
 
 func apply_weed_rules_ratio(ratio: float) -> void:
 	# Spawn ceil(eligible * ratio) weeds by choosing random eligible positions.
 	var eligible: Array[Vector2i] = []
+	var cfg := _get_config()
+	var any_weeds := false
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
-			var p := Vector2i(x, y)
+			if weed_mask[y][x]:
+				any_weeds = true
+				break
+		if any_weeds:
+			break
+	for y in range(GRID_SIZE.y):
+		for x in range(GRID_SIZE.x):
+			var p: Vector2i = Vector2i(x, y)
 			var t := get_tile(p)
-			# Allow weeds on either GROWN or MOWN tiles
-			if ((t == GROWN) or (t == MOWN)) and not weed_mask[y][x]:
-				if _now >= weed_block_until[y][x]:
-					eligible.append(p)
+			if not ((t == GROWN) or (t == MOWN)):
+				continue
+			if weed_mask[y][x]:
+				continue
+			if _now < weed_block_until[y][x]:
+				continue
+			var ok := true
+			if cfg.weed_requires_adjacency:
+				if any_weeds:
+					ok = _has_adjacent_weed(p)
+				else:
+					ok = cfg.weed_seed_when_empty
+			if ok:
+				eligible.append(p)
 	if eligible.is_empty():
 		return
 	var spawn_count: int = int(ceil(float(eligible.size()) * max(0.0, ratio)))
@@ -363,14 +402,44 @@ func _check_advance_on_perfect() -> void:
 		_was_perfect = false
 
 func count_eligible_weed_tiles() -> int:
-	# Eligible tiles are those that can become weeds: GROWN or MOWN
+	# Eligible tiles are those that can become weeds under current config
+	var cfg := _get_config()
+	var any_weeds := false
+	for y in range(GRID_SIZE.y):
+		for x in range(GRID_SIZE.x):
+			if weed_mask[y][x]:
+				any_weeds = true
+				break
+		if any_weeds:
+			break
 	var c: int = 0
 	for y in range(GRID_SIZE.y):
 		for x in range(GRID_SIZE.x):
+			var p: Vector2i = Vector2i(x, y)
 			var t: int = tiles[y][x]
-			if ((t == GROWN) or (t == MOWN)) and not weed_mask[y][x]:
+			if not ((t == GROWN) or (t == MOWN)):
+				continue
+			if weed_mask[y][x]:
+				continue
+			if _now < weed_block_until[y][x]:
+				continue
+			var ok := true
+			if cfg.weed_requires_adjacency:
+				if any_weeds:
+					ok = _has_adjacent_weed(p)
+				else:
+					ok = cfg.weed_seed_when_empty
+			if ok:
 				c += 1
 	return c
+
+func _has_adjacent_weed(p: Vector2i) -> bool:
+	var dirs: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for d: Vector2i in dirs:
+		var q: Vector2i = p + d
+		if is_in_bounds(q) and weed_mask[q.y][q.x]:
+			return true
+	return false
 
 # --- Rendering helpers ---
 

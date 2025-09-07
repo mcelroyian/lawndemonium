@@ -20,6 +20,12 @@ extends Resource
 # Grass regrowth probability per grass tick (mown -> grown)
 @export var p_mown_to_grown: float = 0.05
 
+# Weed spread behavior
+# If true, new weeds can only spawn adjacent (4-way) to existing weeds
+@export var weed_requires_adjacency: bool = true
+# If true and there are no existing weeds, allow a seed spawn anywhere
+@export var weed_seed_when_empty: bool = true
+
 # Initial board state overrides
 # If true, start with every tile as BAD and no weeds
 @export var start_all_bad: bool = false
