@@ -12,6 +12,12 @@ var threshold: int = 5
 var game_over: bool = false
 var _paused: bool = false
 
+const NPCWalker2D = preload("res://scripts/NPCWalker2D.gd")
+var npc_walker: NPCWalker2D = null
+
+# Walker path Y as a ratio of the viewport height (0=top, 1=bottom)
+@export_range(0.0, 1.0, 0.01) var npc_path_y_ratio: float = 0.5
+
 # Optional background image shown behind the playfield.
 @export var background_texture_path: String = "res://assets/bd-background.png"
 @export_range(0.0, 1.0, 0.01) var background_align_x: float = 0.0 # 0=left, 0.5=center, 1=right
@@ -98,6 +104,10 @@ func reset_game() -> void:
 	if ui.has_method("set_active_action"):
 		ui.set_active_action("mow")
 
+	# Spawn/reset NPC walker and sync to current time
+	_spawn_or_reset_npc()
+	_update_npc_from_time()
+
 func _on_player_action(cell: Vector2i, action: String) -> void:
 	if game_over:
 		return
@@ -165,6 +175,10 @@ func _on_level_changed(_index: int, _cfg: LevelConfig) -> void:
 	if ui.has_method("show_game_over"):
 		ui.show_game_over(false, false)
 
+	# Ensure NPC is reset at new level
+	_spawn_or_reset_npc()
+	_update_npc_from_time()
+
 func _on_turn_timer_timeout() -> void:
 	if game_over:
 		return
@@ -175,6 +189,7 @@ func _on_turn_timer_timeout() -> void:
 		amount = 10.0 * turn_timer.wait_time
 	_tick_time(amount)
 	_check_game_over()
+	_update_npc_from_time()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -343,3 +358,65 @@ func _ensure_action(action_name: String, keys: Array) -> void:
 			var e: InputEventKey = InputEventKey.new()
 			e.physical_keycode = key
 			InputMap.action_add_event(action_name, e)
+
+# --- NPC Walker helpers ---
+func _spawn_or_reset_npc() -> void:
+	if npc_walker:
+		npc_walker.queue_free()
+		npc_walker = null
+
+	if playfield == null or board == null:
+		return
+
+	npc_walker = NPCWalker2D.new()
+	add_child(npc_walker)
+
+	# Reuse player sprite frames if available
+	var player_sprite := get_node_or_null("Playfield/Cursor/LPCAnimatedSprite2D") as AnimatedSprite2D
+	if player_sprite and player_sprite.sprite_frames:
+		var desired_anim: StringName = &"walk_east"
+		if player_sprite.sprite_frames.has_animation(desired_anim):
+			npc_walker.set_sprite_frames(player_sprite.sprite_frames, desired_anim)
+		else:
+			npc_walker.set_sprite_frames(player_sprite.sprite_frames, player_sprite.animation)
+
+	# Compute endpoints: X = playfield center X, Y = background-aligned viewport ratio
+	var path_y: float = _get_viewport_top_y() + _get_viewport_height() * clamp(npc_path_y_ratio, 0.0, 1.0)
+	var end_center := _get_playfield_center_global()
+	var end_pos := Vector2(end_center.x, path_y)
+	var left_x := _get_viewport_left_x() + 8.0
+	var start_pos := Vector2(left_x, path_y)
+
+	npc_walker.start_position = start_pos
+	npc_walker.end_position = end_pos
+	npc_walker.global_position = start_pos
+
+func _update_npc_from_time() -> void:
+	if npc_walker == null or total_time <= 0.0:
+		return
+	var ratio := 1.0 - (time_remaining / total_time)
+	npc_walker.set_progress_ratio(ratio)
+
+func _get_viewport_left_x() -> float:
+	var vp := get_viewport()
+	if vp == null:
+		return 0.0
+	return vp.get_visible_rect().position.x
+
+func _get_viewport_top_y() -> float:
+	var vp := get_viewport()
+	if vp == null:
+		return 0.0
+	return vp.get_visible_rect().position.y
+
+func _get_viewport_height() -> float:
+	var vp := get_viewport()
+	if vp == null:
+		return 0.0
+	return float(vp.get_visible_rect().size.y)
+
+func _get_playfield_center_global() -> Vector2:
+	if playfield == null or board == null:
+		return Vector2.ZERO
+	var half := Vector2(board.GRID_SIZE.x * board.TILE, board.GRID_SIZE.y * board.TILE) * 0.5
+	return playfield.to_global(half)
